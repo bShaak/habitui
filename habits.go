@@ -5,6 +5,7 @@ import (
 	"log"
 
 	// import charm bubbletea package
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -15,8 +16,25 @@ type habit struct {
 
 // Model
 type model struct {
-	habits []habit
-	cursor int
+	habits    []habit
+	cursor    int
+	textInput textinput.Model
+	editing   bool
+}
+
+func initialModel() model {
+	ti := textinput.New()
+	ti.Placeholder = "Enter new habit name"
+	ti.Focus()
+	ti.CharLimit = 156
+	ti.Width = 20
+
+	return model{
+		habits:    []habit{},
+		cursor:    0,
+		textInput: ti,
+		editing:   false,
+	}
 }
 
 // Init
@@ -26,27 +44,89 @@ func (m model) Init() tea.Cmd {
 
 // Update
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "ctrl+c", "q":
+		case "ctrl+c":
 			return m, tea.Quit
+		case "q":
+			if m.editing {
+				break
+			} else {
+				return m, tea.Quit
+			}
 		case "up", "k":
-			if m.cursor > 0 {
-				m.cursor--
+			if m.editing {
+				break
+			} else {
+				if m.cursor > 0 {
+					m.cursor--
+				}
 			}
 		case "down", "j":
-			if m.cursor < len(m.habits)-1 {
-				m.cursor++
-			}
-		case "enter", " ":
-			if !m.habits[m.cursor].completed {
-				m.habits[m.cursor].completed = true
+			if m.editing {
+				break
 			} else {
-				m.habits[m.cursor].completed = false
+				if m.cursor < len(m.habits)-1 {
+					m.cursor++
+				}
+			}
+		case "enter":
+			if m.editing {
+				m.habits[m.cursor].name = m.textInput.Value()
+				m.editing = false
+				m.textInput.Blur()
+			} else {
+				if !m.habits[m.cursor].completed {
+					m.habits[m.cursor].completed = true
+				} else {
+					m.habits[m.cursor].completed = false
+				}
+			}
+		case "a":
+			if m.editing {
+				break
+			} else {
+				m.habits = append(m.habits, habit{name: "New habit", completed: false})
+			}
+		case "d":
+			// Delete a habit
+			if m.editing {
+				break
+			} else {
+				if len(m.habits) > 0 {
+					m.habits = append(m.habits[:m.cursor], m.habits[m.cursor+1:]...)
+					if m.cursor > 0 {
+						m.cursor--
+					}
+				}
+			}
+
+		}
+	}
+
+	if m.editing {
+		m.textInput, cmd = m.textInput.Update(msg)
+		return m, cmd
+	}
+
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "e":
+			// Start editing the habit name
+			if m.editing {
+				break
+			} else {
+				m.editing = true
+				m.textInput.SetValue(m.habits[m.cursor].name)
+				m.textInput.Focus()
 			}
 		}
 	}
+
 	return m, nil
 }
 
@@ -67,6 +147,10 @@ func (m model) View() string {
 		s += fmt.Sprintf("%s %s %s\n", cursor, h.name, completed)
 	}
 
+	if m.editing {
+		s += "\nEditing: " + m.textInput.View()
+	}
+
 	s += "\nPress 'q' to quit\n"
 
 	return s
@@ -74,11 +158,10 @@ func (m model) View() string {
 
 func main() {
 	// Initialize the model
-	m := model{
-		habits: []habit{
-			{name: "Read for 30 minutes", completed: false},
-			{name: "Exercise", completed: false},
-		},
+	m := initialModel()
+	m.habits = []habit{
+		{name: "Read for 30 minutes", completed: false},
+		{name: "Exercise", completed: false},
 	}
 
 	// Start the program
