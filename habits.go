@@ -3,23 +3,23 @@ package main
 import (
 	"fmt"
 	"log"
+	"os"
 
 	// import charm bubbletea package
+	"example/habitui/db"
+	"example/habitui/types"
+
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-type habit struct {
-	name      string
-	completed bool
-}
-
 // Model
 type model struct {
-	habits    []habit
+	habits    []types.Habit
 	cursor    int
 	textInput textinput.Model
 	editing   bool
+	dbClient  *db.DBClient
 }
 
 func initialModel() model {
@@ -29,11 +29,18 @@ func initialModel() model {
 	ti.CharLimit = 156
 	ti.Width = 20
 
+	client := db.NewDBClient()
+	habits, err := client.GetHabits()
+	if err != nil {
+		log.Fatalf("Error fetching habits: %s", err)
+	}
+
 	return model{
-		habits:    []habit{},
+		habits:    habits,
 		cursor:    0,
 		textInput: ti,
 		editing:   false,
+		dbClient:  client,
 	}
 }
 
@@ -75,21 +82,21 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "enter":
 			if m.editing {
-				m.habits[m.cursor].name = m.textInput.Value()
+				m.habits[m.cursor].Name = m.textInput.Value()
 				m.editing = false
 				m.textInput.Blur()
 			} else {
-				if !m.habits[m.cursor].completed {
-					m.habits[m.cursor].completed = true
+				if !m.habits[m.cursor].Completed {
+					m.habits[m.cursor].Completed = true
 				} else {
-					m.habits[m.cursor].completed = false
+					m.habits[m.cursor].Completed = false
 				}
 			}
 		case "a":
 			if m.editing {
 				break
 			} else {
-				m.habits = append(m.habits, habit{name: "New habit", completed: false})
+				m.habits = append(m.habits, types.Habit{Name: "New habit", Completed: false})
 			}
 		case "d":
 			// Delete a habit
@@ -121,7 +128,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				break
 			} else {
 				m.editing = true
-				m.textInput.SetValue(m.habits[m.cursor].name)
+				m.textInput.SetValue(m.habits[m.cursor].Name)
 				m.textInput.Focus()
 			}
 		}
@@ -141,10 +148,10 @@ func (m model) View() string {
 		}
 
 		completed := ""
-		if h.completed {
+		if h.Completed {
 			completed = "✅"
 		}
-		s += fmt.Sprintf("%s %s %s\n", cursor, h.name, completed)
+		s += fmt.Sprintf("%s %s %s\n", cursor, h.Name, completed)
 	}
 
 	if m.editing {
@@ -157,16 +164,9 @@ func (m model) View() string {
 }
 
 func main() {
-	// Initialize the model
-	m := initialModel()
-	m.habits = []habit{
-		{name: "Read for 30 minutes", completed: false},
-		{name: "Exercise", completed: false},
-	}
-
-	// Start the program
-	p := tea.NewProgram(m)
-	if _, err := p.Run(); err != nil {
-		log.Fatal(err)
+	p := tea.NewProgram(initialModel())
+	if err := p.Start(); err != nil {
+		fmt.Printf("Error: %v", err)
+		os.Exit(1)
 	}
 }
