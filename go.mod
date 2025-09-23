@@ -1,4 +1,4 @@
-module example/habitui
+module github.com/bShaak/habitui
 
 go 1.23.4
 

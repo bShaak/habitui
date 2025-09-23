@@ -2,10 +2,11 @@ package db
 
 import (
 	"database/sql"
-	"example/habitui/types"
 	"fmt"
 	"log"
 	"os"
+
+	types "github.com/bShaak/habitui/internal/models"
 
 	"github.com/joho/godotenv"
 	_ "github.com/tursodatabase/libsql-client-go/libsql"

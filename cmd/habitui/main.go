@@ -2,12 +2,10 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
 
-	// import charm bubbletea package
-	"example/habitui/db"
-	"example/habitui/types"
+	// "github.com/bShaak/habitui/internal/db"
+	types "github.com/bShaak/habitui/internal/models"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -19,7 +17,7 @@ type model struct {
 	cursor    int
 	textInput textinput.Model
 	editing   bool
-	dbClient  *db.DBClient
+	// dbClient  *db.DBClient
 }
 
 func initialModel() model {
@@ -29,10 +27,16 @@ func initialModel() model {
 	ti.CharLimit = 156
 	ti.Width = 20
 
-	client := db.NewDBClient()
-	habits, err := client.GetHabits()
-	if err != nil {
-		log.Fatalf("Error fetching habits: %s", err)
+	//client := db.NewDBClient()
+	// habits, err := client.GetHabits()
+	// if err != nil {
+	// 	log.Fatalf("Error fetching habits: %s", err)
+	// }
+
+	habits := []types.Habit{
+		{Name: "Run", Completed: false},
+		{Name: "Yoga", Completed: false},
+		{Name: "Personal Project", Completed: false},
 	}
 
 	return model{
@@ -40,7 +44,7 @@ func initialModel() model {
 		cursor:    0,
 		textInput: ti,
 		editing:   false,
-		dbClient:  client,
+		// dbClient:  client,
 	}
 }
 
