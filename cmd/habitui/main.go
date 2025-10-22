@@ -1,11 +1,14 @@
 package main
 
 import (
+	"context"
 	"fmt"
+	"log"
 	"os"
+	"time"
 
-	// "github.com/bShaak/habitui/internal/db"
 	types "github.com/bShaak/habitui/internal/models"
+	"github.com/bShaak/habitui/internal/storage"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -14,10 +17,11 @@ import (
 // Model
 type model struct {
 	habits    []types.Habit
+	habitLogs []types.HabitLog
 	cursor    int
 	textInput textinput.Model
 	editing   bool
-	// dbClient  *db.DBClient
+	store  *storage.SQLiteStore
 }
 
 func initialModel() model {
@@ -27,24 +31,32 @@ func initialModel() model {
 	ti.CharLimit = 156
 	ti.Width = 20
 
-	//client := db.NewDBClient()
-	// habits, err := client.GetHabits()
-	// if err != nil {
-	// 	log.Fatalf("Error fetching habits: %s", err)
-	// }
+	store, err := storage.OpenSQLite()
+	if err != nil {
+		log.Fatalf("Error opening database: %s", err)
+		defer store.Close()
+	}
 
-	habits := []types.Habit{
-		{Name: "Run", Completed: false},
-		{Name: "Yoga", Completed: false},
-		{Name: "Personal Project", Completed: false},
+	habits, err := store.ListHabits(context.Background())
+	if err != nil {
+		log.Fatalf("Error fetching habits: %s", err)
+	}
+
+	habitLogs := make([]types.HabitLog, len(habits))
+	for i, h := range habits {
+		habitLogs[i] = types.HabitLog{
+			HabitID: h.ID,
+			Timestamp: time.Time{},
+		}
 	}
 
 	return model{
 		habits:    habits,
+		habitLogs: habitLogs,
 		cursor:    0,
 		textInput: ti,
 		editing:   false,
-		// dbClient:  client,
+		store:     store,
 	}
 }
 
@@ -61,11 +73,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c":
+			defer m.store.Close()
 			return m, tea.Quit
 		case "q":
 			if m.editing {
 				break
 			} else {
+				defer m.store.Close()
 				return m, tea.Quit
 			}
 		case "up", "k":
@@ -87,28 +101,44 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "enter":
 			if m.editing {
 				m.habits[m.cursor].Name = m.textInput.Value()
+				err := m.store.UpdateHabit(context.Background(), &m.habits[m.cursor])
+				if err != nil {
+					log.Printf("Error updating habit: %s", err)
+				}
 				m.editing = false
 				m.textInput.Blur()
 			} else {
-				if !m.habits[m.cursor].Completed {
-					m.habits[m.cursor].Completed = true
+				if m.habitLogs[m.cursor].Timestamp.IsZero() {
+					m.habitLogs[m.cursor].Timestamp = time.Now()
 				} else {
-					m.habits[m.cursor].Completed = false
+					m.habitLogs[m.cursor].Timestamp = time.Time{}
 				}
 			}
 		case "a":
 			if m.editing {
 				break
 			} else {
-				m.habits = append(m.habits, types.Habit{Name: "New habit", Completed: false})
+				habit, err := m.store.CreateHabit(context.Background(), &types.Habit{Name: "New habit"})
+				if err != nil {
+					log.Printf("Error creating habit: %s", err)
+					break
+				}
+				m.habits = append(m.habits, *habit)
+				m.habitLogs = append(m.habitLogs, types.HabitLog{HabitID: m.habits[len(m.habits)-1].ID, Timestamp: time.Now()})
 			}
-		case "d":
+		case "x":
 			// Delete a habit
 			if m.editing {
 				break
 			} else {
 				if len(m.habits) > 0 {
+					err := m.store.DeleteHabit(context.Background(), m.habits[m.cursor].ID)
+					if err != nil {
+						log.Printf("Error deleting habit: %s", err.Error())
+						break
+					}
 					m.habits = append(m.habits[:m.cursor], m.habits[m.cursor+1:]...)
+					m.habitLogs = append(m.habitLogs[:m.cursor], m.habitLogs[m.cursor+1:]...)
 					if m.cursor > 0 {
 						m.cursor--
 					}
@@ -152,7 +182,9 @@ func (m model) View() string {
 		}
 
 		completed := ""
-		if h.Completed {
+		if m.habitLogs[i].Timestamp.IsZero() {
+			completed = "❌"
+		} else {
 			completed = "✅"
 		}
 		s += fmt.Sprintf("%s %s %s\n", cursor, h.Name, completed)
@@ -169,7 +201,8 @@ func (m model) View() string {
 
 func main() {
 	p := tea.NewProgram(initialModel())
-	if err := p.Start(); err != nil {
+	_, err := p.Run(); 
+	if err != nil {
 		fmt.Printf("Error: %v", err)
 		os.Exit(1)
 	}
