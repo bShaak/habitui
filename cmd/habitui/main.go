@@ -14,10 +14,18 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
+func IsCompleted(completions []types.Completion, h *types.Habit) bool {
+	for _, c := range completions {
+		if c.HabitID == h.ID {
+			return true
+		}
+	}
+	return false
+}
 // Model
 type model struct {
 	habits    []types.Habit
-	habitLogs []types.HabitLog
+	completions []types.Completion
 	cursor    int
 	textInput textinput.Model
 	editing   bool
@@ -42,17 +50,14 @@ func initialModel() model {
 		log.Fatalf("Error fetching habits: %s", err)
 	}
 
-	habitLogs := make([]types.HabitLog, len(habits))
-	for i, h := range habits {
-		habitLogs[i] = types.HabitLog{
-			HabitID: h.ID,
-			Timestamp: time.Time{},
-		}
+	completions, err := store.ListCompletions(context.Background())
+	if err != nil {
+		log.Fatalf("Error fetching completions: %s", err)
 	}
 
 	return model{
 		habits:    habits,
-		habitLogs: habitLogs,
+		completions: completions,
 		cursor:    0,
 		textInput: ti,
 		editing:   false,
@@ -108,23 +113,43 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.editing = false
 				m.textInput.Blur()
 			} else {
-				if m.habitLogs[m.cursor].Timestamp.IsZero() {
-					m.habitLogs[m.cursor].Timestamp = time.Now()
+				if !IsCompleted(m.completions, &m.habits[m.cursor]) {
+					m.store.CreateCompletion(context.Background(), &types.Completion{HabitID: m.habits[m.cursor].ID, CompletedAt: time.Now().Format(time.RFC3339)})
+					m.completions = append(m.completions, types.Completion{HabitID: m.habits[m.cursor].ID, CompletedAt: time.Now().Format(time.RFC3339)})
 				} else {
-					m.habitLogs[m.cursor].Timestamp = time.Time{}
+				// Delete all completions for this habit (un-complete)
+				completions, err := m.store.GetCompletionsByHabitId(context.Background(), m.habits[m.cursor].ID)
+				if err != nil {
+					log.Printf("Error retrieving completions: %s", err)
+				} else {
+					for _, c := range completions {
+						err := m.store.DeleteCompletion(context.Background(), c.ID)
+						if err != nil {
+							log.Printf("Error deleting completion: %s", err)
+						}
+					}
+					// Remove from local completions slice
+					var updated []types.Completion
+					for _, c := range m.completions {
+						if c.HabitID != m.habits[m.cursor].ID {
+							updated = append(updated, c)
+						}
+					}
+					m.completions = updated
+				}
 				}
 			}
 		case "a":
 			if m.editing {
 				break
 			} else {
-				habit, err := m.store.CreateHabit(context.Background(), &types.Habit{Name: "New habit"})
+				habit, err := m.store.CreateHabit(context.Background(), &types.Habit{Name: "New habit", StartDate: time.Now().Format(time.RFC3339), CreatedAt: time.Now().Format(time.RFC3339), UpdatedAt: time.Now().Format(time.RFC3339)})
 				if err != nil {
 					log.Printf("Error creating habit: %s", err)
 					break
 				}
 				m.habits = append(m.habits, *habit)
-				m.habitLogs = append(m.habitLogs, types.HabitLog{HabitID: m.habits[len(m.habits)-1].ID, Timestamp: time.Now()})
+				// m.completions = append(m.completions, types.Completion{HabitID: m.habits[len(m.habits)-1].ID, CompletedAt: time.Now().Format(time.RFC3339)})
 			}
 		case "x":
 			// Delete a habit
@@ -137,8 +162,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						log.Printf("Error deleting habit: %s", err.Error())
 						break
 					}
+					// TODO: Fix bug where we access past end of slice
 					m.habits = append(m.habits[:m.cursor], m.habits[m.cursor+1:]...)
-					m.habitLogs = append(m.habitLogs[:m.cursor], m.habitLogs[m.cursor+1:]...)
+					m.completions = append(m.completions[:m.cursor], m.completions[m.cursor+1:]...)
 					if m.cursor > 0 {
 						m.cursor--
 					}
@@ -182,10 +208,10 @@ func (m model) View() string {
 		}
 
 		completed := ""
-		if m.habitLogs[i].Timestamp.IsZero() {
-			completed = "❌"
-		} else {
+		if IsCompleted(m.completions, &h) {
 			completed = "✅"
+		} else {
+			completed = "❌"
 		}
 		s += fmt.Sprintf("%s %s %s\n", cursor, h.Name, completed)
 	}
