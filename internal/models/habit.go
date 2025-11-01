@@ -4,6 +4,7 @@ type Habit struct {
 	Name        string    `json:"name"`
 	Description string    `json:"description"`
 	Frequency   string    `json:"frequency"` // e.g. "daily" or "weekly"; default daily
+	Goal        int       `json:"goal"` // e.g. 100; default 1
 	StartDate   string 	  `json:"start_date"`
 	CreatedAt   string    `json:"created_at"`
 	UpdatedAt   string    `json:"updated_at"`
