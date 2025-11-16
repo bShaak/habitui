@@ -25,59 +25,57 @@ var (
 
 func CreateHabit() *huh.Form {
 	form := huh.NewForm(
-	huh.NewGroup(
+		huh.NewGroup(
 			huh.NewInput().
-					Title("Habit Name").
-					Key("name").
-					Value(&Name).
-					Validate(func(str string) error {
-							if str == "" {
-								return errors.New("name must not be empty")
-							}
-							return nil
-					}),
-
-					huh.NewInput().
-					Title("How many times per day do you want to track this habit?").
-					Key("goal").
-					Value(&GoalString).
-					Validate(func(str string) error {
-							goalInt, err := strconv.Atoi(str);
-							if err != nil {
-								return errors.New("goal must be a number")
-							}
-							if goalInt < 1 {
-								return errors.New("goal must be at least 1")
-							}
-							return nil
-					}),
+				Title("Habit Name").
+				Key("name").
+				Value(&Name).
+				Validate(func(str string) error {
+					if str == "" {
+						return errors.New("name must not be empty")
+					}
+					return nil
+				}),
+			huh.NewInput().
+				Title("How many times per day do you want to track this habit?").
+				Key("goal").
+				Value(&GoalString).
+				Validate(func(str string) error {
+					goalInt, err := strconv.Atoi(str);
+					if err != nil {
+						return errors.New("goal must be a number")
+					}
+					if goalInt < 1 {
+						return errors.New("goal must be at least 1")
+					}
+					return nil
+			}),
 			huh.NewText().
-					Title("Habit Description").
-					Key("description").
-					CharLimit(400).
-					Value(&Description),
+				Title("Habit Description").
+				Key("description").
+				CharLimit(400).
+				Value(&Description),
 			huh.NewMultiSelect[string]().
-					Title("What days of the week do you want to track this habit?").
-					Key("frequency").
-					Options(
-							huh.NewOption("Monday", "monday"),
-							huh.NewOption("Tuesday", "tuesday"),
-							huh.NewOption("Wednesday", "wednesday"),
-							huh.NewOption("Thursday", "thursday"),
-							huh.NewOption("Friday", "friday"),
-							huh.NewOption("Saturday", "saturday"),
-							huh.NewOption("Sunday", "sunday"),
-					).
-					Value(&Frequency),
-
+				Title("What days of the week do you want to track this habit?").
+				Key("frequency").
+				Options(
+					huh.NewOption("Monday", "monday"),
+					huh.NewOption("Tuesday", "tuesday"),
+					huh.NewOption("Wednesday", "wednesday"),
+					huh.NewOption("Thursday", "thursday"),
+					huh.NewOption("Friday", "friday"),
+					huh.NewOption("Saturday", "saturday"),
+					huh.NewOption("Sunday", "sunday"),
+				).
+				Value(&Frequency),
 			huh.NewConfirm().
-					Title("Create Habit?").
-					Key("confirm").
-					Affirmative("Yes").
-					Negative("No").
-					Value(&Confirm),
-	),
-)
+				Title("Create Habit?").
+				Key("confirm").
+				Affirmative("Yes").
+				Negative("No").
+				Value(&Confirm),
+		),
+	)
 
 	return form
 }
@@ -102,7 +100,7 @@ func GetCreateHabitUpdate(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
 		description := m.form.GetString("description")
 		// frequency := m.newHabitForm.GetString("Frequency")
 		freq := m.form.Get("frequency").([]string)
-		frequency := strings.Join(freq, ", ")
+		frequency := strings.Join(freq, ",")
 		if frequency == "" {
 				frequency = "Daily"  // Default
 		}

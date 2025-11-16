@@ -34,6 +34,11 @@ func GetMainUpdate(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.getView = GetCreateHabitView
 			m.getUpdate = GetCreateHabitUpdate
 			return m, m.form.Init()
+		case "e":
+			m.form = EditHabit(m.habits[m.cursor])
+			m.getView = GetEditHabitView
+			m.getUpdate = GetEditHabitUpdate
+			return m, m.form.Init()
 		case "k":
 			if m.cursor > 0 {
 				m.cursor--
