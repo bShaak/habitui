@@ -16,7 +16,7 @@ Habitui is a terminal-based utility that helps you track and manage your habits.
 - [x] Add data persistance to local db
 - [x] Add create habit view when pressing 'a'
 - [x] Delete habits
-- [ ] Add daily tracking.
+- [x] Add daily tracking.
 - [ ] Show calendar week view in tui
 - [ ] Add neet colours and things to make it fun!
 - [ ] Edit habits
