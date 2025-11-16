@@ -22,7 +22,7 @@ func IsCompleted(completions []types.Completion, h *types.Habit) bool {
 	return false
 }
 // Model
-type model struct {
+type tmodel struct {
 	habits    []types.Habit
 	completions []types.Completion
 	cursor    int
@@ -31,7 +31,7 @@ type model struct {
 	store  *storage.SQLiteStore
 }
 
-func InitialTextInputModel() model {
+func InitialTextInputModel() tmodel {
 	ti := textinput.New()
 	ti.Placeholder = "Enter new habit name"
 	ti.Focus()
@@ -54,7 +54,7 @@ func InitialTextInputModel() model {
 		log.Fatalf("Error fetching completions: %s", err)
 	}
 
-	return model{
+	return tmodel{
 		habits:    habits,
 		completions: completions,
 		cursor:    0,
@@ -65,12 +65,12 @@ func InitialTextInputModel() model {
 }
 
 // Init
-func (m model) Init() tea.Cmd {
+func (m tmodel) Init() tea.Cmd {
 	return nil
 }
 
 // Update
-func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m tmodel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
 	switch msg := msg.(type) {
@@ -197,7 +197,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // View
-func (m model) View() string {
+func (m tmodel) View() string {
 	s := "Habits\n\n"
 
 	for i, h := range m.habits {
