@@ -12,12 +12,13 @@ import (
 )
 
 func IsCompleted(completions []types.Completion, h *types.Habit) bool {
+	completionCount := 0
 	for _, c := range completions {
 		if c.HabitID == h.ID {
-			return true
+			completionCount++
 		}
 	}
-	return false
+	return completionCount == h.Goal
 }
 
 // Update
@@ -115,6 +116,14 @@ func GetMainView(m model) string {
 				completed = "✅"
 			} else {
 				completed = "❌"
+				completionCount := 0
+				for _, c := range m.completions {
+					if c.HabitID == h.ID {
+						completionCount++
+					}
+				}
+				completionCountText := fmt.Sprintf("(%d/%d)", completionCount, h.Goal)
+				completed = fmt.Sprintf("%s %s", completed, completionCountText)
 			}
 			name := h.Name
 			if name == "" {
