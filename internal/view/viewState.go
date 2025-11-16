@@ -3,6 +3,7 @@ package view
 import (
 	"context"
 	"log"
+	"time"
 
 	types "github.com/bShaak/habitui/internal/models"
 	"github.com/bShaak/habitui/internal/storage"
@@ -86,7 +87,7 @@ func InitViewState() model {
 		log.Fatalf("Error fetching habits: %s", err)
 	}
 
-	completions, err := store.ListCompletions(context.Background())
+	completions, err := store.GetCompletionsByDate(context.Background(), time.Now())
 	if err != nil {
 		log.Fatalf("Error fetching completions: %s", err)
 	}

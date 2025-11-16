@@ -5,9 +5,20 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"time"
 
+	types "github.com/bShaak/habitui/internal/models"
 	tea "github.com/charmbracelet/bubbletea"
 )
+
+func IsCompleted(completions []types.Completion, h *types.Habit) bool {
+	for _, c := range completions {
+		if c.HabitID == h.ID {
+			return true
+		}
+	}
+	return false
+}
 
 // Update
 func GetMainUpdate(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -48,6 +59,37 @@ func GetMainUpdate(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.cursor--
 				}
 			}
+		case "enter":
+			if !IsCompleted(m.completions, &m.habits[m.cursor]) {
+				c, err := m.store.CreateCompletion(context.Background(), &types.Completion{HabitID: m.habits[m.cursor].ID, CompletedAt: time.Now().Format(time.RFC3339)})
+				if err != nil {
+					log.Printf("Error creating completion: %s", err)
+					return m, nil
+				}
+				m.completions = append(m.completions, *c)
+			} else {
+			// Delete all completions for this habit (un-complete)
+			completions, err := m.store.GetCompletionsByHabitId(context.Background(), m.habits[m.cursor].ID)
+			if err != nil {
+				log.Printf("Error retrieving completions: %s", err)
+				return m, nil
+			}
+			for _, c := range completions {
+				err := m.store.DeleteCompletion(context.Background(), c.ID)
+				if err != nil {
+					log.Printf("Error deleting completion: %s", err)
+				}
+			}
+			// Remove from local completions slice
+			// TODO: just query the db for completions by date
+			var updated []types.Completion
+			for _, c := range m.completions {
+				if c.HabitID != m.habits[m.cursor].ID {
+					updated = append(updated, c)
+				}
+			}
+			m.completions = updated
+			}
 		}
 	}
 	return m, nil
@@ -68,11 +110,17 @@ func GetMainView(m model) string {
 			if i == m.cursor {
 				cursor = ">"
 			}
+			completed := ""
+			if IsCompleted(m.completions, &h) {
+				completed = "✅"
+			} else {
+				completed = "❌"
+			}
 			name := h.Name
 			if name == "" {
 				name = "Unnamed"
 			}
-			b.WriteString(fmt.Sprintf("%s %s\n", cursor, name))
+			b.WriteString(fmt.Sprintf("%s %s %s\n", cursor, name, completed))
 		}
 	}
 	b.WriteString("\n")

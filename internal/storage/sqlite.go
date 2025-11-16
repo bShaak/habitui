@@ -232,12 +232,39 @@ func (s *SQLiteStore) GetCompletionsByHabitIdAndDate(ctx context.Context, habitI
 }
 
 func (s *SQLiteStore) GetCompletionsByHabitId(ctx context.Context, habitId int64) ([]models.Completion, error) {
-	
 	rows, err := s.DB.QueryContext(ctx, `
 		SELECT id, habit_id, completed_at
 		FROM completions
 		WHERE habit_id = ?`,
 		habitId)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var completions []models.Completion
+	for rows.Next() {
+		var c models.Completion
+		var completedAtStr string
+		if err := rows.Scan(&c.ID, &c.HabitID, &completedAtStr); err != nil {
+			return nil, err
+		}
+		c.CompletedAt = completedAtStr
+		completions = append(completions, c)
+	}
+	return completions, rows.Err()
+}
+
+func (s *SQLiteStore) GetCompletionsByDate(ctx context.Context, date time.Time) ([]models.Completion, error) {
+	// Get the start of the day (00:00:00) and end of the day (23:59:59.999999999)
+	startOfDay := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, date.Location())
+	endOfDay := time.Date(date.Year(), date.Month(), date.Day(), 23, 59, 59, 999999999, date.Location())
+
+	rows, err := s.DB.QueryContext(ctx, `
+		SELECT id, habit_id, completed_at
+		FROM completions
+		WHERE completed_at >= ? AND completed_at <= ?`,
+		startOfDay.Format(time.RFC3339),
+		endOfDay.Format(time.RFC3339))
 	if err != nil {
 		return nil, err
 	}
