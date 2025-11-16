@@ -61,6 +61,7 @@ type model struct {
 	styles     	*Styles
 	getView    	func(m model) string
 	getUpdate  	func(m model,msg tea.Msg) (tea.Model, tea.Cmd)
+	cursor     	int
 }
 
 func (m model) appBoundaryView(text string) string {
@@ -101,6 +102,7 @@ func InitViewState() model {
 		styles:    NewStyles(lg),
 		getView:   GetMainView,
 		getUpdate: GetMainUpdate,
+		cursor:    0,
 	}
 }
 

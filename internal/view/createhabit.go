@@ -120,8 +120,9 @@ func GetCreateHabitUpdate(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
 			Goal: goalInt,
 			StartDate: time.Now().Format(time.RFC3339),
 		}
-		m.habits = append(m.habits, habit)
-		_, err = m.store.CreateHabit(context.Background(), &habit)
+		
+		h, err := m.store.CreateHabit(context.Background(), &habit)
+		m.habits = append(m.habits, *h)
 		if err != nil {
 			log.Fatalf("Error creating habit: %s", err)
 		}
