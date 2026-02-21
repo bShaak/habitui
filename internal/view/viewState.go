@@ -28,6 +28,12 @@ type Styles struct {
 	Help lipgloss.Style
 }
 
+func getMonday(t time.Time) time.Time {
+	weekday := t.Weekday()
+	daysSinceMonday := (int(weekday) + 6) % 7
+	return t.AddDate(0, 0, -daysSinceMonday)
+}
+
 func NewStyles(lg *lipgloss.Renderer) *Styles {
 	s := Styles{}
 	s.Base = lg.NewStyle().
@@ -54,15 +60,18 @@ func NewStyles(lg *lipgloss.Renderer) *Styles {
 }
 
 type model struct {
-	habits    	[]types.Habit
-	completions []types.Completion
-	store  			*storage.SQLiteStore
-	form 				*huh.Form
-	lg         	*lipgloss.Renderer
-	styles     	*Styles
-	getView    	func(m model) string
-	getUpdate  	func(m model,msg tea.Msg) (tea.Model, tea.Cmd)
-	cursor     	int
+	habits          []types.Habit
+	completions     []types.Completion
+	store           *storage.SQLiteStore
+	form            *huh.Form
+	lg              *lipgloss.Renderer
+	styles          *Styles
+	getView         func(m model) string
+	getUpdate       func(m model, msg tea.Msg) (tea.Model, tea.Cmd)
+	cursor          int
+	weekStart       time.Time
+	weekCompletions []types.Completion
+	calendarCol     int
 }
 
 func (m model) appBoundaryView(text string) string {
@@ -92,22 +101,33 @@ func InitViewState() model {
 		log.Fatalf("Error fetching completions: %s", err)
 	}
 
+	now := time.Now()
+	weekStart := getMonday(now)
+	weekEnd := weekStart.AddDate(0, 0, 6)
+	weekCompletions, err := store.GetCompletionsByDateRange(context.Background(), weekStart, weekEnd)
+	if err != nil {
+		log.Fatalf("Error fetching week completions: %s", err)
+	}
+
 	lg := lipgloss.DefaultRenderer()
 
 	return model{
-		habits:    habits,
-		completions: completions,
-		form: nil,
-		store:     store,
-		lg:        lg,
-		styles:    NewStyles(lg),
-		getView:   GetMainView,
-		getUpdate: GetMainUpdate,
-		cursor:    0,
+		habits:          habits,
+		completions:     completions,
+		form:            nil,
+		store:           store,
+		lg:              lg,
+		styles:          NewStyles(lg),
+		getView:         GetMainView,
+		getUpdate:       GetMainUpdate,
+		cursor:          0,
+		weekStart:       weekStart,
+		weekCompletions: weekCompletions,
+		calendarCol:     0,
 	}
 }
 
-// // Init
+// Init
 func (m model) Init() tea.Cmd {
 	return nil
 }
@@ -121,6 +141,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			defer m.store.Close()
 			return m, tea.Quit
 		case "esc":
+			completions, err := m.store.GetCompletionsByDate(context.Background(), time.Now())
+			if err != nil {
+				log.Printf("Error fetching today's completions: %s", err)
+			}
+			m.completions = completions
 			m.getView = GetMainView
 			m.getUpdate = GetMainUpdate
 			return m, nil

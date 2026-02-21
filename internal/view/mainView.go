@@ -34,6 +34,25 @@ func GetMainUpdate(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.getView = GetCreateHabitView
 			m.getUpdate = GetCreateHabitUpdate
 			return m, m.form.Init()
+		case "c":
+			habits, err := m.store.ListHabits(context.Background())
+			if err != nil {
+				log.Printf("Error fetching habits: %s", err)
+			}
+			m.habits = habits
+			weekEnd := m.weekStart.AddDate(0, 0, 6)
+			completions, err := m.store.GetCompletionsByDateRange(context.Background(), m.weekStart, weekEnd)
+			if err != nil {
+				log.Printf("Error fetching week completions: %s", err)
+			}
+			m.weekCompletions = completions
+			if m.cursor >= len(m.habits) {
+				m.cursor = 0
+			}
+			m.calendarCol = 0
+			m.getView = GetCalendarView
+			m.getUpdate = GetCalendarUpdate
+			return m, nil
 		case "e":
 			m.form = EditHabit(m.habits[m.cursor])
 			m.getView = GetEditHabitView
@@ -74,27 +93,42 @@ func GetMainUpdate(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				m.completions = append(m.completions, *c)
 			} else {
-			// Delete all completions for this habit (un-complete)
-			completions, err := m.store.GetCompletionsByHabitId(context.Background(), m.habits[m.cursor].ID)
-			if err != nil {
-				log.Printf("Error retrieving completions: %s", err)
-				return m, nil
-			}
-			for _, c := range completions {
-				err := m.store.DeleteCompletion(context.Background(), c.ID)
+				completions, err := m.store.GetCompletionsByHabitId(context.Background(), m.habits[m.cursor].ID)
 				if err != nil {
-					log.Printf("Error deleting completion: %s", err)
+					log.Printf("Error retrieving completions: %s", err)
+					return m, nil
 				}
-			}
-			// Remove from local completions slice
-			// TODO: just query the db for completions by date
-			var updated []types.Completion
-			for _, c := range m.completions {
-				if c.HabitID != m.habits[m.cursor].ID {
-					updated = append(updated, c)
+				now := time.Now()
+				startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+				endOfDay := time.Date(now.Year(), now.Month(), now.Day(), 23, 59, 59, 999999999, now.Location())
+
+				for _, c := range completions {
+					completedAt, err := time.Parse(time.RFC3339, c.CompletedAt)
+					if err != nil {
+						continue
+					}
+					if (completedAt.Equal(startOfDay) || completedAt.After(startOfDay)) &&
+						(completedAt.Equal(endOfDay) || completedAt.Before(endOfDay)) {
+						err := m.store.DeleteCompletion(context.Background(), c.ID)
+						if err != nil {
+							log.Printf("Error deleting completion: %s", err)
+						}
+					}
 				}
-			}
-			m.completions = updated
+				var updated []types.Completion
+				for _, c := range m.completions {
+					completedAt, err := time.Parse(time.RFC3339, c.CompletedAt)
+					if err != nil {
+						updated = append(updated, c)
+						continue
+					}
+					if !(c.HabitID == m.habits[m.cursor].ID &&
+						(completedAt.Equal(startOfDay) || completedAt.After(startOfDay)) &&
+						(completedAt.Equal(endOfDay) || completedAt.Before(endOfDay))) {
+						updated = append(updated, c)
+					}
+				}
+				m.completions = updated
 			}
 		}
 	}
@@ -138,7 +172,7 @@ func GetMainView(m model) string {
 		}
 	}
 	b.WriteString("\n")
-	help := s.Help.Render("a: Add new habit  |  q: Quit")
+	help := s.Help.Render("a: Add new habit  |  c: Calendar  |  e: Edit  |  x: Delete  |  enter: Toggle  |  q: Quit")
 	b.WriteString(help)
 	return s.Base.Render(b.String())
 }
