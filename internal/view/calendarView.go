@@ -247,9 +247,19 @@ func GetCalendarView(m model) string {
 				cellStyle = lipgloss.NewStyle().Width(cellWidth).Align(lipgloss.Center)
 
 				if row == m.cursor && col == m.calendarCol {
-					cellStyle = cellStyle.
-						Background(lipgloss.Color("57")).
-						Foreground(lipgloss.Color("#FFFFFF"))
+					if isComplete {
+						cellStyle = cellStyle.
+							Background(lipgloss.Color("57")).
+							Foreground(green)
+					} else if isPartial {
+						cellStyle = cellStyle.
+							Background(lipgloss.Color("57")).
+							Foreground(yellow)
+					} else {
+						cellStyle = cellStyle.
+							Background(lipgloss.Color("57")).
+							Foreground(lipgloss.Color("#FFFFFF"))
+					}
 				}
 
 				if isComplete {

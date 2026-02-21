@@ -139,7 +139,7 @@ func GetMainUpdate(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
 func GetMainView(m model) string {
 	s := m.styles
 	var b strings.Builder
-	header := m.appBoundaryView("Your Habits")
+	header := m.appBoundaryView("Today's Habits")
 	b.WriteString(header)
 	b.WriteString("\n\n")
 	if len(m.habits) == 0 {
@@ -152,9 +152,9 @@ func GetMainView(m model) string {
 			}
 			completed := ""
 			if IsCompleted(m.completions, &h) {
-				completed = "✅"
+				completed = "✓"
 			} else {
-				completed = "❌"
+				completed = "✗"
 				completionCount := 0
 				for _, c := range m.completions {
 					if c.HabitID == h.ID {
