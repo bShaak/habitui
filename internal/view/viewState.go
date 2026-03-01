@@ -13,9 +13,24 @@ import (
 )
 
 var (
-	red    = lipgloss.AdaptiveColor{Light: "#FE5F86", Dark: "#FE5F86"}
-	indigo = lipgloss.AdaptiveColor{Light: "#5A56E0", Dark: "#7571F9"}
-	green  = lipgloss.AdaptiveColor{Light: "#02BA84", Dark: "#02BF87"}
+	rosewater = lipgloss.Color("#f5e0dc")
+	flamingo  = lipgloss.Color("#f2cdcd")
+	mauve     = lipgloss.Color("#cba6f7")
+	red       = lipgloss.Color("#f38ba8")
+	peach     = lipgloss.Color("#fab387")
+	yellow    = lipgloss.Color("#f9e2af")
+	green     = lipgloss.Color("#a6e3a1")
+	teal      = lipgloss.Color("#94e2d5")
+	sky       = lipgloss.Color("#89dceb")
+	sapphire  = lipgloss.Color("#74c7ec")
+	blue      = lipgloss.Color("#89b4fa")
+	lavender  = lipgloss.Color("#b4befe")
+	text      = lipgloss.Color("#cdd6f4")
+	subtext   = lipgloss.Color("#bac2de")
+	overlay   = lipgloss.Color("#9399b2")
+	surface1  = lipgloss.Color("#45475a")
+	surface2  = lipgloss.Color("#585b70")
+	pink      = lipgloss.Color("#f5c2e7")
 )
 
 type Styles struct {
@@ -41,30 +56,30 @@ func NewStyles(lg *lipgloss.Renderer) *Styles {
 	s.Base = lg.NewStyle().
 		Padding(1, 2, 0, 1)
 	s.HeaderText = lg.NewStyle().
-		Foreground(indigo).
+		Foreground(lavender).
 		Bold(true).
 		MarginLeft(2)
 	s.Status = lg.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(indigo).
+		BorderForeground(lavender).
 		PaddingLeft(1).
 		MarginTop(1)
 	s.StatusHeader = lg.NewStyle().
 		Foreground(green).
 		Bold(true)
 	s.Highlight = lg.NewStyle().
-		Foreground(lipgloss.Color("212"))
+		Foreground(pink)
 	s.ErrorHeaderText = s.HeaderText.
 		Foreground(red)
 	s.Help = lg.NewStyle().
-		Foreground(lipgloss.Color("240"))
+		Foreground(overlay)
 	s.ContentBox = lg.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(indigo).
+		BorderForeground(lavender).
 		Padding(1, 2).
 		MarginLeft(2)
 	s.Title = lg.NewStyle().
-		Foreground(indigo).
+		Foreground(lavender).
 		Bold(true).
 		MarginLeft(2)
 	return &s
@@ -90,7 +105,7 @@ func (m model) appBoundaryView(text string) string {
 		0,
 		lipgloss.Left,
 		m.styles.HeaderText.Render(text),
-		lipgloss.WithWhitespaceForeground(indigo),
+		lipgloss.WithWhitespaceForeground(lavender),
 	)
 }
 

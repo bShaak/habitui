@@ -15,6 +15,10 @@ import (
 func EditHabit(habit types.Habit) *huh.Form {
 	goalString := strconv.Itoa(habit.Goal)
 	frequency := strings.Split(habit.Frequency, ",")
+	color := habit.Color
+	if color == "" {
+		color = "purple"
+	}
 
 	for i, f := range frequency {
 		frequency[i] = strings.TrimSpace(f)
@@ -63,6 +67,19 @@ func EditHabit(habit types.Habit) *huh.Form {
 					huh.NewOption("Sunday", "sunday"),
 				).
 				Value(&frequency),
+			huh.NewSelect[string]().
+				Title("What color should this habit be?").
+				Key("color").
+				Options(
+					huh.NewOption("Red", "red"),
+					huh.NewOption("Blue", "blue"),
+					huh.NewOption("Green", "green"),
+					huh.NewOption("Yellow", "yellow"),
+					huh.NewOption("Orange", "orange"),
+					huh.NewOption("Purple", "purple"),
+					huh.NewOption("Pink", "pink"),
+				).
+				Value(&color),
 
 			huh.NewConfirm().
 				Title("Update Habit?").
@@ -71,7 +88,7 @@ func EditHabit(habit types.Habit) *huh.Form {
 				Negative("No").
 				Value(&Confirm),
 		),
-	).WithWidth(60)
+	).WithWidth(60).WithTheme(huh.ThemeCatppuccin())
 
 	return form
 }
@@ -105,10 +122,15 @@ func GetEditHabitUpdate(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
 		if err != nil {
 			log.Fatalf("Error converting goal to int: %s", err)
 		}
+		color := m.form.GetString("color")
+		if color == "" {
+			color = "purple"
+		}
 		habit.Name = name
 		habit.Description = description
 		habit.Goal = goalInt
 		habit.Frequency = frequency
+		habit.Color = color
 		err = m.store.UpdateHabit(context.Background(), &habit)
 		if err != nil {
 			log.Fatalf("Error updating habit: %s", err)

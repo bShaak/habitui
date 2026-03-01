@@ -20,10 +20,12 @@ var (
 	GoalString  string
 	StartDate   string
 	Description string
+	Color       string
 	Confirm     bool
 )
 
 func CreateHabit() *huh.Form {
+	Color = "purple"
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewInput().
@@ -68,6 +70,19 @@ func CreateHabit() *huh.Form {
 					huh.NewOption("Sunday", "sunday"),
 				).
 				Value(&Frequency),
+			huh.NewSelect[string]().
+				Title("What color should this habit be?").
+				Key("color").
+				Options(
+					huh.NewOption("Red", "red"),
+					huh.NewOption("Blue", "blue"),
+					huh.NewOption("Green", "green"),
+					huh.NewOption("Yellow", "yellow"),
+					huh.NewOption("Orange", "orange"),
+					huh.NewOption("Purple", "purple"),
+					huh.NewOption("Pink", "pink"),
+				).
+				Value(&Color),
 			huh.NewConfirm().
 				Title("Create Habit?").
 				Key("confirm").
@@ -75,7 +90,7 @@ func CreateHabit() *huh.Form {
 				Negative("No").
 				Value(&Confirm),
 		),
-	).WithWidth(60)
+	).WithWidth(60).WithTheme(huh.ThemeCatppuccin())
 
 	return form
 }
@@ -109,11 +124,16 @@ func GetCreateHabitUpdate(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
 		if err != nil {
 			log.Fatalf("Error converting goal to int: %s", err)
 		}
+		color := m.form.GetString("color")
+		if color == "" {
+			color = "purple"
+		}
 		habit := types.Habit{
 			Name:        name,
 			Description: description,
 			Frequency:   frequency,
 			Goal:        goalInt,
+			Color:       color,
 			StartDate:   time.Now().Format(time.RFC3339),
 		}
 

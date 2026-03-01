@@ -16,7 +16,6 @@ var (
 	cellWidth      = 8
 	habitNameWidth = 12
 	dayNames       = []string{"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"}
-	yellow         = lipgloss.AdaptiveColor{Light: "#F5A623", Dark: "#F5A623"}
 )
 
 func parseFrequency(frequency string) map[string]bool {
@@ -61,6 +60,24 @@ func isScheduledOnDay(frequency string, dayName string) bool {
 	}
 	days := parseFrequency(frequency)
 	return days[dayName]
+}
+
+var calendarHabitColors = map[string]lipgloss.Color{
+	"red":    "#f38ba8",
+	"blue":   "#89b4fa",
+	"green":  "#a6e3a1",
+	"yellow": "#f9e2af",
+	"orange": "#fab387",
+	"purple": "#cba6f7",
+	"pink":   "#f5c2e7",
+}
+
+func getCalendarHabitColor(color string) lipgloss.Color {
+	c, ok := calendarHabitColors[strings.ToLower(color)]
+	if !ok {
+		c = calendarHabitColors["purple"]
+	}
+	return lipgloss.Color(c)
 }
 
 func GetCalendarUpdate(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -193,7 +210,7 @@ func GetCalendarView(m model) string {
 	var content strings.Builder
 
 	headerCell := lipgloss.NewStyle().
-		Foreground(indigo).
+		Foreground(blue).
 		Bold(true).
 		Width(cellWidth).
 		Align(lipgloss.Center)
@@ -209,7 +226,7 @@ func GetCalendarView(m model) string {
 	content.WriteString("\n")
 
 	separatorCell := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("240")).
+		Foreground(overlay).
 		Width(cellWidth).
 		Align(lipgloss.Center)
 	content.WriteString(emptyCell.Render(" "))
@@ -222,9 +239,10 @@ func GetCalendarView(m model) string {
 		content.WriteString(s.Help.Render("No habits created yet.\n\nPress 'a' from main view to create a new one."))
 	} else {
 		for row, habit := range m.habits {
-			nameStyle := lipgloss.NewStyle().Width(habitNameWidth)
+			habitColor := getCalendarHabitColor(habit.Color)
+			nameStyle := lipgloss.NewStyle().Width(habitNameWidth).Foreground(habitColor)
 			if row == m.cursor {
-				nameStyle = nameStyle.Foreground(lipgloss.Color("212")).Bold(true)
+				nameStyle = nameStyle.Bold(true)
 			}
 			name := habit.Name
 			if len(name) > habitNameWidth-1 {
@@ -253,16 +271,16 @@ func GetCalendarView(m model) string {
 				if row == m.cursor && col == m.calendarCol {
 					if isComplete {
 						cellStyle = cellStyle.
-							Background(lipgloss.Color("57")).
+							Background(surface1).
 							Foreground(green)
 					} else if isPartial {
 						cellStyle = cellStyle.
-							Background(lipgloss.Color("57")).
+							Background(surface1).
 							Foreground(yellow)
 					} else {
 						cellStyle = cellStyle.
-							Background(lipgloss.Color("57")).
-							Foreground(lipgloss.Color("#FFFFFF"))
+							Background(surface1).
+							Foreground(text)
 					}
 				}
 
@@ -279,12 +297,12 @@ func GetCalendarView(m model) string {
 				} else if isScheduled || hasSpecificDays {
 					cellContent = "·"
 					if !(row == m.cursor && col == m.calendarCol) {
-						cellStyle = cellStyle.Foreground(lipgloss.Color("248"))
+						cellStyle = cellStyle.Foreground(overlay)
 					}
 				} else {
 					cellContent = "-"
 					if !(row == m.cursor && col == m.calendarCol) {
-						cellStyle = cellStyle.Foreground(lipgloss.Color("238"))
+						cellStyle = cellStyle.Foreground(overlay)
 					}
 				}
 

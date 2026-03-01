@@ -9,6 +9,7 @@ import (
 
 	types "github.com/bShaak/habitui/internal/models"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 func IsCompleted(completions []types.Completion, h *types.Habit) bool {
@@ -19,6 +20,24 @@ func IsCompleted(completions []types.Completion, h *types.Habit) bool {
 		}
 	}
 	return completionCount == h.Goal
+}
+
+var habitColors = map[string]lipgloss.Color{
+	"red":    "#f38ba8",
+	"blue":   "#89b4fa",
+	"green":  "#a6e3a1",
+	"yellow": "#f9e2af",
+	"orange": "#fab387",
+	"purple": "#cba6f7",
+	"pink":   "#f5c2e7",
+}
+
+func getHabitColor(color string) lipgloss.Color {
+	c, ok := habitColors[strings.ToLower(color)]
+	if !ok {
+		c = habitColors["purple"]
+	}
+	return lipgloss.Color(c)
 }
 
 // Update
@@ -153,6 +172,7 @@ func GetMainView(m model) string {
 			if i == m.cursor {
 				cursor = ">"
 			}
+			habitColor := getHabitColor(h.Color)
 			completed := ""
 			if IsCompleted(m.completions, &h) {
 				completed = "✓"
@@ -171,7 +191,9 @@ func GetMainView(m model) string {
 			if name == "" {
 				name = "Unnamed"
 			}
-			content.WriteString(fmt.Sprintf("%s %s %s\n", cursor, name, completed))
+			nameStyle := lipgloss.NewStyle().Foreground(habitColor)
+			completedStyle := lipgloss.NewStyle().Foreground(habitColor)
+			content.WriteString(fmt.Sprintf("%s %s %s\n", cursor, nameStyle.Render(name), completedStyle.Render(completed)))
 		}
 		content.WriteString("\n")
 		help := s.Help.Render("a: Add new habit  |  c: Calendar  |  e: Edit  |  x: Delete  |  enter: Toggle  |  q: Quit")
