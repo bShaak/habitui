@@ -142,8 +142,9 @@ func GetMainView(m model) string {
 	header := m.appBoundaryView("Today's Habits")
 	b.WriteString(header)
 	b.WriteString("\n\n")
+	var content strings.Builder
 	if len(m.habits) == 0 {
-		b.WriteString(s.Help.Render("No habits created yet.\n\nPress 'a' to create a new one."))
+		content.WriteString(s.Help.Render("No habits created yet.\n\nPress 'a' to create a new one."))
 	} else {
 		for i, h := range m.habits {
 			cursor := " "
@@ -168,11 +169,12 @@ func GetMainView(m model) string {
 			if name == "" {
 				name = "Unnamed"
 			}
-			b.WriteString(fmt.Sprintf("%s %s %s\n", cursor, name, completed))
+			content.WriteString(fmt.Sprintf("%s %s %s\n", cursor, name, completed))
 		}
+		content.WriteString("\n")
+		help := s.Help.Render("a: Add new habit  |  c: Calendar  |  e: Edit  |  x: Delete  |  enter: Toggle  |  q: Quit")
+		content.WriteString(help)
 	}
-	b.WriteString("\n")
-	help := s.Help.Render("a: Add new habit  |  c: Calendar  |  e: Edit  |  x: Delete  |  enter: Toggle  |  q: Quit")
-	b.WriteString(help)
+	b.WriteString(s.ContentBox.Render(content.String()))
 	return s.Base.Render(b.String())
 }

@@ -25,7 +25,8 @@ type Styles struct {
 	StatusHeader,
 	Highlight,
 	ErrorHeaderText,
-	Help lipgloss.Style
+	Help,
+	ContentBox lipgloss.Style
 }
 
 func getMonday(t time.Time) time.Time {
@@ -56,6 +57,10 @@ func NewStyles(lg *lipgloss.Renderer) *Styles {
 		Foreground(red)
 	s.Help = lg.NewStyle().
 		Foreground(lipgloss.Color("240"))
+	s.ContentBox = lg.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(indigo).
+		Padding(1, 2)
 	return &s
 }
 

@@ -15,12 +15,12 @@ import (
 )
 
 var (
-	Name string
-	Frequency []string
-	GoalString string
-	StartDate string
+	Name        string
+	Frequency   []string
+	GoalString  string
+	StartDate   string
 	Description string
-	Confirm bool
+	Confirm     bool
 )
 
 func CreateHabit() *huh.Form {
@@ -41,7 +41,7 @@ func CreateHabit() *huh.Form {
 				Key("goal").
 				Value(&GoalString).
 				Validate(func(str string) error {
-					goalInt, err := strconv.Atoi(str);
+					goalInt, err := strconv.Atoi(str)
 					if err != nil {
 						return errors.New("goal must be a number")
 					}
@@ -49,7 +49,7 @@ func CreateHabit() *huh.Form {
 						return errors.New("goal must be at least 1")
 					}
 					return nil
-			}),
+				}),
 			huh.NewText().
 				Title("Habit Description").
 				Key("description").
@@ -75,7 +75,7 @@ func CreateHabit() *huh.Form {
 				Negative("No").
 				Value(&Confirm),
 		),
-	)
+	).WithWidth(60)
 
 	return form
 }
@@ -98,34 +98,31 @@ func GetCreateHabitUpdate(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
 			name = "Unnamed Habit"
 		}
 		description := m.form.GetString("description")
-		// frequency := m.newHabitForm.GetString("Frequency")
 		freq := m.form.Get("frequency").([]string)
 		frequency := strings.Join(freq, ",")
 		if frequency == "" {
-				frequency = "Daily"  // Default
+			frequency = "Daily"
 		}
 		fmt.Printf("Frequency: %s\n", frequency)
 		goal := m.form.GetString("goal")
-		// startDate := m.newHabitForm.GetString("startDate")
 		goalInt, err := strconv.Atoi(goal)
 		if err != nil {
 			log.Fatalf("Error converting goal to int: %s", err)
 		}
 		habit := types.Habit{
-			Name:  name,
+			Name:        name,
 			Description: description,
-			Frequency: frequency,
-			Goal: goalInt,
-			StartDate: time.Now().Format(time.RFC3339),
+			Frequency:   frequency,
+			Goal:        goalInt,
+			StartDate:   time.Now().Format(time.RFC3339),
 		}
-		
+
 		h, err := m.store.CreateHabit(context.Background(), &habit)
 		m.habits = append(m.habits, *h)
 		if err != nil {
 			log.Fatalf("Error creating habit: %s", err)
 		}
 
-		// Return to main view after creating habit
 		m.getView = GetMainView
 		m.getUpdate = GetMainUpdate
 	}
@@ -134,5 +131,11 @@ func GetCreateHabitUpdate(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func GetCreateHabitView(m model) string {
-	return m.form.View()
+	s := m.styles
+	var content strings.Builder
+	content.WriteString(m.form.View())
+	content.WriteString("\n\n")
+	help := s.Help.Render("esc: cancel  |  enter: confirm")
+	content.WriteString(help)
+	return s.ContentBox.Render(content.String())
 }

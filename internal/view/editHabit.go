@@ -36,7 +36,7 @@ func EditHabit(habit types.Habit) *huh.Form {
 				Key("goal").
 				Value(&goalString).
 				Validate(func(str string) error {
-					goalInt, err := strconv.Atoi(str);
+					goalInt, err := strconv.Atoi(str)
 					if err != nil {
 						return errors.New("goal must be a number")
 					}
@@ -71,7 +71,7 @@ func EditHabit(habit types.Habit) *huh.Form {
 				Negative("No").
 				Value(&Confirm),
 		),
-	)
+	).WithWidth(60)
 
 	return form
 }
@@ -98,7 +98,7 @@ func GetEditHabitUpdate(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
 		freq := m.form.Get("frequency").([]string)
 		frequency := strings.Join(freq, ",")
 		if frequency == "" {
-				frequency = "monday,tuesday,wednesday,thursday,friday,saturday,sunday"  // Default frequency is daily
+			frequency = "monday,tuesday,wednesday,thursday,friday,saturday,sunday"
 		}
 		goal := m.form.GetString("goal")
 		goalInt, err := strconv.Atoi(goal)
@@ -119,9 +119,7 @@ func GetEditHabitUpdate(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
 				break
 			}
 		}
-		
 
-		// Return to main view after creating habit
 		m.getView = GetMainView
 		m.getUpdate = GetMainUpdate
 	}
@@ -130,5 +128,11 @@ func GetEditHabitUpdate(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func GetEditHabitView(m model) string {
-	return m.form.View()
+	s := m.styles
+	var content strings.Builder
+	content.WriteString(m.form.View())
+	content.WriteString("\n\n")
+	help := s.Help.Render("esc: cancel  |  enter: confirm")
+	content.WriteString(help)
+	return s.ContentBox.Render(content.String())
 }

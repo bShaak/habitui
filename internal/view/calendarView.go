@@ -188,6 +188,8 @@ func GetCalendarView(m model) string {
 	b.WriteString(header)
 	b.WriteString("\n\n")
 
+	var content strings.Builder
+
 	headerCell := lipgloss.NewStyle().
 		Foreground(indigo).
 		Bold(true).
@@ -195,27 +197,27 @@ func GetCalendarView(m model) string {
 		Align(lipgloss.Center)
 
 	emptyCell := lipgloss.NewStyle().Width(habitNameWidth)
-	b.WriteString(emptyCell.Render(" "))
+	content.WriteString(emptyCell.Render(" "))
 
 	for i := 0; i < 7; i++ {
 		date := m.weekStart.AddDate(0, 0, i)
 		dayHeader := fmt.Sprintf("%s %d", dayNames[i], date.Day())
-		b.WriteString(headerCell.Render(dayHeader))
+		content.WriteString(headerCell.Render(dayHeader))
 	}
-	b.WriteString("\n")
+	content.WriteString("\n")
 
 	separatorCell := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("240")).
 		Width(cellWidth).
 		Align(lipgloss.Center)
-	b.WriteString(emptyCell.Render(" "))
+	content.WriteString(emptyCell.Render(" "))
 	for i := 0; i < 7; i++ {
-		b.WriteString(separatorCell.Render(strings.Repeat("-", 6)))
+		content.WriteString(separatorCell.Render(strings.Repeat("-", 6)))
 	}
-	b.WriteString("\n")
+	content.WriteString("\n")
 
 	if len(m.habits) == 0 {
-		b.WriteString(s.Help.Render("No habits created yet.\n\nPress 'a' from main view to create a new one."))
+		content.WriteString(s.Help.Render("No habits created yet.\n\nPress 'a' from main view to create a new one."))
 	} else {
 		for row, habit := range m.habits {
 			nameStyle := lipgloss.NewStyle().Width(habitNameWidth)
@@ -226,7 +228,7 @@ func GetCalendarView(m model) string {
 			if len(name) > habitNameWidth-1 {
 				name = name[:habitNameWidth-2] + "…"
 			}
-			b.WriteString(nameStyle.Render(name))
+			content.WriteString(nameStyle.Render(name))
 
 			frequencyDays := parseFrequency(habit.Frequency)
 
@@ -284,16 +286,18 @@ func GetCalendarView(m model) string {
 					}
 				}
 
-				b.WriteString(cellStyle.Render(cellContent))
+				content.WriteString(cellStyle.Render(cellContent))
 			}
-			b.WriteString("\n")
+			content.WriteString("\n")
 		}
 	}
 
-	b.WriteString("\n")
+	content.WriteString("\n")
 	helpText := "h/l: navigate days  |  j/k: navigate habits  |  enter: toggle  |  H/L: prev/next week  |  esc: back  |  q: quit"
 	help := s.Help.Render(helpText)
-	b.WriteString(help)
+	content.WriteString(help)
+
+	b.WriteString(s.ContentBox.Render(content.String()))
 
 	return s.Base.Render(b.String())
 }
