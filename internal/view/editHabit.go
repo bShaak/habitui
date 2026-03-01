@@ -129,10 +129,17 @@ func GetEditHabitUpdate(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func GetEditHabitView(m model) string {
 	s := m.styles
+	var b strings.Builder
+	b.WriteString(m.renderTitle())
+	b.WriteString("\n")
+	header := m.appBoundaryView("Edit Habit")
+	b.WriteString(header)
+	b.WriteString("\n\n")
 	var content strings.Builder
 	content.WriteString(m.form.View())
 	content.WriteString("\n\n")
 	help := s.Help.Render("esc: cancel  |  enter: confirm")
 	content.WriteString(help)
-	return s.ContentBox.Render(content.String())
+	b.WriteString(s.ContentBox.Render(content.String()))
+	return s.Base.Render(b.String())
 }

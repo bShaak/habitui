@@ -178,6 +178,8 @@ func GetCalendarUpdate(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
 func GetCalendarView(m model) string {
 	s := m.styles
 	var b strings.Builder
+	b.WriteString(m.renderTitle())
+	b.WriteString("\n")
 
 	weekEnd := m.weekStart.AddDate(0, 0, 6)
 	headerText := fmt.Sprintf("Week of %s %d - %s %d, %d",

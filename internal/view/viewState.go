@@ -26,7 +26,8 @@ type Styles struct {
 	Highlight,
 	ErrorHeaderText,
 	Help,
-	ContentBox lipgloss.Style
+	ContentBox,
+	Title lipgloss.Style
 }
 
 func getMonday(t time.Time) time.Time {
@@ -38,11 +39,11 @@ func getMonday(t time.Time) time.Time {
 func NewStyles(lg *lipgloss.Renderer) *Styles {
 	s := Styles{}
 	s.Base = lg.NewStyle().
-		Padding(1, 4, 0, 1)
+		Padding(1, 2, 0, 1)
 	s.HeaderText = lg.NewStyle().
 		Foreground(indigo).
 		Bold(true).
-		Padding(0, 1, 0, 2)
+		MarginLeft(2)
 	s.Status = lg.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(indigo).
@@ -60,7 +61,12 @@ func NewStyles(lg *lipgloss.Renderer) *Styles {
 	s.ContentBox = lg.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(indigo).
-		Padding(1, 2)
+		Padding(1, 2).
+		MarginLeft(2)
+	s.Title = lg.NewStyle().
+		Foreground(indigo).
+		Bold(true).
+		MarginLeft(2)
 	return &s
 }
 
@@ -81,12 +87,15 @@ type model struct {
 
 func (m model) appBoundaryView(text string) string {
 	return lipgloss.PlaceHorizontal(
-		80,
+		0,
 		lipgloss.Left,
 		m.styles.HeaderText.Render(text),
-		lipgloss.WithWhitespaceChars("/"),
 		lipgloss.WithWhitespaceForeground(indigo),
 	)
+}
+
+func (m model) renderTitle() string {
+	return m.styles.Title.Render("Habitui")
 }
 
 func InitViewState() model {
