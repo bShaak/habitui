@@ -58,6 +58,19 @@ func GetMainUpdate(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.getView = GetCalendarView
 			m.getUpdate = GetCalendarUpdate
 			return m, nil
+		case "s":
+			habits, err := m.store.ListHabits(context.Background())
+			if err != nil {
+				log.Printf("Error fetching habits: %s", err)
+			}
+			m.habits = habits
+			if m.cursor >= len(m.habits) {
+				m.cursor = 0
+			}
+			m.statsTab = 0
+			m.getView = GetStatsView
+			m.getUpdate = GetStatsUpdate
+			return m, nil
 		case "e":
 			m.form = EditHabit(m.habits[m.cursor])
 			m.getView = GetEditHabitView
@@ -182,7 +195,7 @@ func GetMainView(m model) string {
 			content.WriteString(fmt.Sprintf("%s %s %s\n", cursor, nameStyle.Render(name), completedStyle.Render(completed)))
 		}
 		content.WriteString("\n")
-		help := s.Help.Render("a: Add new habit  |  c: Calendar  |  e: Edit  |  x: Delete  |  enter: Toggle  |  q: Quit")
+		help := s.Help.Render("a: Add new habit  |  c: Calendar  |  s: Stats  |  e: Edit  |  x: Delete  |  enter: Toggle  |  q: Quit")
 		content.WriteString(help)
 	}
 	b.WriteString(s.ContentBox.Render(content.String()))

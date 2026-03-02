@@ -158,6 +158,8 @@ type model struct {
 	weekStart       time.Time
 	weekCompletions []types.Completion
 	calendarCol     int
+	scrollOffset    int
+	statsTab        int
 }
 
 func (m model) appBoundaryView(text string) string {
