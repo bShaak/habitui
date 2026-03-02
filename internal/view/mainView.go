@@ -22,22 +22,8 @@ func IsCompleted(completions []types.Completion, h *types.Habit) bool {
 	return completionCount == h.Goal
 }
 
-var habitColors = map[string]lipgloss.Color{
-	"red":    "#f38ba8",
-	"blue":   "#89b4fa",
-	"green":  "#a6e3a1",
-	"yellow": "#f9e2af",
-	"orange": "#fab387",
-	"purple": "#cba6f7",
-	"pink":   "#f5c2e7",
-}
-
 func getHabitColor(color string) lipgloss.Color {
-	c, ok := habitColors[strings.ToLower(color)]
-	if !ok {
-		c = habitColors["purple"]
-	}
-	return lipgloss.Color(c)
+	return GetHabitColor(color)
 }
 
 // Update

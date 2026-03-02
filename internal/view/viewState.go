@@ -3,35 +3,95 @@ package view
 import (
 	"context"
 	"log"
+	"strings"
 	"time"
 
 	types "github.com/bShaak/habitui/internal/models"
 	"github.com/bShaak/habitui/internal/storage"
+	"github.com/bShaak/habitui/internal/theme"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
 )
 
+var currentTheme theme.Theme
+
 var (
-	rosewater = lipgloss.Color("#f5e0dc")
-	flamingo  = lipgloss.Color("#f2cdcd")
-	mauve     = lipgloss.Color("#cba6f7")
-	red       = lipgloss.Color("#f38ba8")
-	peach     = lipgloss.Color("#fab387")
-	yellow    = lipgloss.Color("#f9e2af")
-	green     = lipgloss.Color("#a6e3a1")
-	teal      = lipgloss.Color("#94e2d5")
-	sky       = lipgloss.Color("#89dceb")
-	sapphire  = lipgloss.Color("#74c7ec")
-	blue      = lipgloss.Color("#89b4fa")
-	lavender  = lipgloss.Color("#b4befe")
-	text      = lipgloss.Color("#cdd6f4")
-	subtext   = lipgloss.Color("#bac2de")
-	overlay   = lipgloss.Color("#9399b2")
-	surface1  = lipgloss.Color("#45475a")
-	surface2  = lipgloss.Color("#585b70")
-	pink      = lipgloss.Color("#f5c2e7")
+	rosewater lipgloss.Color
+	flamingo  lipgloss.Color
+	mauve     lipgloss.Color
+	red       lipgloss.Color
+	peach     lipgloss.Color
+	yellow    lipgloss.Color
+	green     lipgloss.Color
+	teal      lipgloss.Color
+	sky       lipgloss.Color
+	sapphire  lipgloss.Color
+	blue      lipgloss.Color
+	lavender  lipgloss.Color
+	text      lipgloss.Color
+	subtext   lipgloss.Color
+	overlay   lipgloss.Color
+	surface1  lipgloss.Color
+	surface2  lipgloss.Color
+	pink      lipgloss.Color
 )
+
+func initTheme() {
+	config, err := theme.LoadConfig()
+	if err != nil {
+		log.Printf("Error loading theme config: %s, using default", err)
+		config = &theme.Config{}
+	}
+	currentTheme = theme.GetTheme(config)
+	applyThemeColors()
+}
+
+func applyThemeColors() {
+	t := currentTheme.Base
+	rosewater = lipgloss.Color(t.Rosewater)
+	flamingo = lipgloss.Color(t.Flamingo)
+	mauve = lipgloss.Color(t.Mauve)
+	red = lipgloss.Color(t.Red)
+	peach = lipgloss.Color(t.Peach)
+	yellow = lipgloss.Color(t.Yellow)
+	green = lipgloss.Color(t.Green)
+	teal = lipgloss.Color(t.Teal)
+	sky = lipgloss.Color(t.Sky)
+	sapphire = lipgloss.Color(t.Sapphire)
+	blue = lipgloss.Color(t.Blue)
+	lavender = lipgloss.Color(t.Lavender)
+	text = lipgloss.Color(t.Text)
+	subtext = lipgloss.Color(t.Subtext)
+	overlay = lipgloss.Color(t.Overlay)
+	surface1 = lipgloss.Color(t.Surface1)
+	surface2 = lipgloss.Color(t.Surface2)
+	pink = lipgloss.Color(t.Pink)
+}
+
+func GetHabitColor(colorName string) lipgloss.Color {
+	colorKey := colorName
+	if colorKey == "" {
+		colorKey = "purple"
+	}
+	colorKey = strings.ToLower(colorKey)
+
+	colorMap := map[string]lipgloss.Color{
+		"red":    lipgloss.Color(currentTheme.Base.Red),
+		"blue":   lipgloss.Color(currentTheme.Base.Blue),
+		"green":  lipgloss.Color(currentTheme.Base.Green),
+		"yellow": lipgloss.Color(currentTheme.Base.Yellow),
+		"orange": lipgloss.Color(currentTheme.Base.Peach),
+		"purple": lipgloss.Color(currentTheme.Base.Mauve),
+		"pink":   lipgloss.Color(currentTheme.Base.Pink),
+	}
+
+	c, ok := colorMap[colorKey]
+	if !ok {
+		c = lipgloss.Color(currentTheme.Base.Mauve)
+	}
+	return c
+}
 
 type Styles struct {
 	Base,
@@ -114,6 +174,7 @@ func (m model) renderTitle() string {
 }
 
 func InitViewState() model {
+	initTheme()
 	store, err := storage.OpenSQLite()
 	if err != nil {
 		log.Fatalf("Error opening database: %s", err)

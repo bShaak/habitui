@@ -62,22 +62,8 @@ func isScheduledOnDay(frequency string, dayName string) bool {
 	return days[dayName]
 }
 
-var calendarHabitColors = map[string]lipgloss.Color{
-	"red":    "#f38ba8",
-	"blue":   "#89b4fa",
-	"green":  "#a6e3a1",
-	"yellow": "#f9e2af",
-	"orange": "#fab387",
-	"purple": "#cba6f7",
-	"pink":   "#f5c2e7",
-}
-
 func getCalendarHabitColor(color string) lipgloss.Color {
-	c, ok := calendarHabitColors[strings.ToLower(color)]
-	if !ok {
-		c = calendarHabitColors["purple"]
-	}
-	return lipgloss.Color(c)
+	return GetHabitColor(color)
 }
 
 func GetCalendarUpdate(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
