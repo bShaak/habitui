@@ -2,6 +2,16 @@
 
 Habitui is a terminal-based utility that helps you track and manage your habits.
 
+## Installation
+
+Requires Go 1.23+.
+
+```
+go install github.com/bShaak/habitui@latest
+```
+
+All data is stored in `~/.habitui/`.
+
 ## Features
 
 - **Simple Interface**: Easy-to-use terminal interface for quick habit tracking.
@@ -64,4 +74,4 @@ Create a `habitui.config` file to customize colors. Available color keys:
 - [ ] Add progress bars for weekly habit goals, inferred from habits schedule
 - [ ] Habit data and stats for selected habit in daily view
 - [ ] monthly view
-- [ ] make project simple to install, on linux and mac
+- [x] make project simple to install, on linux and mac

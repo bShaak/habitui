@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/bShaak/habitui/internal/models"
@@ -15,9 +17,22 @@ type SQLiteStore struct {
 	DB *sql.DB
 }
 
-// OpenSQLite opens (or creates) a SQLite database at the provided path and runs migrations.
+func getDBPath() string {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "habit.db"
+	}
+	dir := filepath.Join(homeDir, ".habitui")
+	return filepath.Join(dir, "habit.db")
+}
+
+// OpenSQLite opens (or creates) a SQLite database and runs migrations.
 func OpenSQLite() (*SQLiteStore, error) {
-	db, err := sql.Open("sqlite3", "./habit.db")
+	dbPath := getDBPath()
+	if err := os.MkdirAll(filepath.Dir(dbPath), 0o755); err != nil {
+		return nil, err
+	}
+	db, err := sql.Open("sqlite3", dbPath)
 	if err != nil {
 		return nil, err
 	}
