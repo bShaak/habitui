@@ -230,9 +230,10 @@ func GetCalendarView(m model) string {
 			if row == m.cursor {
 				nameStyle = nameStyle.Bold(true)
 			}
-			name := habit.Name
-			if len(name) > habitNameWidth-1 {
-				name = name[:habitNameWidth-2] + "…"
+			name := formatHabitLabel(habit)
+			if len([]rune(name)) > habitNameWidth-1 {
+				runes := []rune(name)
+				name = string(runes[:habitNameWidth-2]) + "…"
 			}
 			content.WriteString(nameStyle.Render(name))
 

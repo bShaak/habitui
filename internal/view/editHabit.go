@@ -2,7 +2,6 @@ package view
 
 import (
 	"context"
-	"errors"
 	"log"
 	"strconv"
 	"strings"
@@ -19,81 +18,34 @@ func EditHabit(habit types.Habit) *huh.Form {
 	if color == "" {
 		color = "purple"
 	}
+	icon := habit.Icon
+	name := habit.Name
+	description := habit.Description
 
 	for i, f := range frequency {
 		frequency[i] = strings.TrimSpace(f)
 	}
-	form := huh.NewForm(
-		huh.NewGroup(
-			huh.NewInput().
-				Title("Habit Name").
-				Key("name").
-				Value(&habit.Name).
-				Validate(func(str string) error {
-					if str == "" {
-						return errors.New("name must not be empty")
-					}
-					return nil
-				}),
-			huh.NewInput().
-				Title("How many times per day do you want to track this habit?").
-				Key("goal").
-				Value(&goalString).
-				Validate(func(str string) error {
-					goalInt, err := strconv.Atoi(str)
-					if err != nil {
-						return errors.New("goal must be a number")
-					}
-					if goalInt < 1 {
-						return errors.New("goal must be at least 1")
-					}
-					return nil
-				}),
-			huh.NewText().
-				Title("Habit Description").
-				Key("description").
-				CharLimit(400).
-				Value(&habit.Description),
-			huh.NewMultiSelect[string]().
-				Title("What days of the week do you want to track this habit?").
-				Key("frequency").
-				Options(
-					huh.NewOption("Monday", "monday"),
-					huh.NewOption("Tuesday", "tuesday"),
-					huh.NewOption("Wednesday", "wednesday"),
-					huh.NewOption("Thursday", "thursday"),
-					huh.NewOption("Friday", "friday"),
-					huh.NewOption("Saturday", "saturday"),
-					huh.NewOption("Sunday", "sunday"),
-				).
-				Value(&frequency),
-			huh.NewSelect[string]().
-				Title("What color should this habit be?").
-				Key("color").
-				Options(
-					huh.NewOption("Red", "red"),
-					huh.NewOption("Blue", "blue"),
-					huh.NewOption("Green", "green"),
-					huh.NewOption("Yellow", "yellow"),
-					huh.NewOption("Orange", "orange"),
-					huh.NewOption("Purple", "purple"),
-					huh.NewOption("Pink", "pink"),
-				).
-				Value(&color),
 
-			huh.NewConfirm().
-				Title("Update Habit?").
-				Key("confirm").
-				Affirmative("Yes").
-				Negative("No").
-				Value(&Confirm),
-		),
-	).WithWidth(60).WithTheme(huh.ThemeCatppuccin())
+	// Bind to package-level vars so values survive across form pages.
+	Name = name
+	GoalString = goalString
+	Description = description
+	Frequency = frequency
+	Color = color
+	Icon = icon
+	Confirm = false
 
-	return form
+	return habitForm(&Name, &GoalString, &Description, &Color, &Icon, &Frequency, &Confirm, "Update Habit?")
 }
 
 func GetEditHabitUpdate(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
+	// huh expands every group to the tallest group's height on WindowSizeMsg;
+	// handle width ourselves and skip forwarding so the box stays content-sized.
+	if _, ok := msg.(tea.WindowSizeMsg); ok {
+		applyFormSize(m.form, m.width, m.height)
+		return m, nil
+	}
+
 	habit := m.habits[m.cursor]
 	var cmds []tea.Cmd
 	form, cmd := m.form.Update(msg)
@@ -103,6 +55,7 @@ func GetEditHabitUpdate(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 	if m.form.State == huh.StateCompleted {
 		if !Confirm {
+			m.form = nil
 			m.getView = GetMainView
 			m.getUpdate = GetMainUpdate
 			return m, nil
@@ -126,11 +79,13 @@ func GetEditHabitUpdate(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
 		if color == "" {
 			color = "purple"
 		}
+		icon := m.form.GetString("icon")
 		habit.Name = name
 		habit.Description = description
 		habit.Goal = goalInt
 		habit.Frequency = frequency
 		habit.Color = color
+		habit.Icon = icon
 		err = m.store.UpdateHabit(context.Background(), &habit)
 		if err != nil {
 			log.Fatalf("Error updating habit: %s", err)
@@ -142,6 +97,7 @@ func GetEditHabitUpdate(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
+		m.form = nil
 		m.getView = GetMainView
 		m.getUpdate = GetMainUpdate
 	}
@@ -160,7 +116,7 @@ func GetEditHabitView(m model) string {
 	var content strings.Builder
 	content.WriteString(m.form.View())
 	content.WriteString("\n\n")
-	help := s.Help.Render("esc: cancel  |  enter: confirm")
+	help := s.Help.Render("tab: next  |  shift+tab: back  |  esc: cancel")
 	content.WriteString(help)
 	b.WriteString(s.ContentBox.Render(content.String()))
 	return s.Base.Render(b.String())

@@ -146,20 +146,24 @@ func NewStyles(lg *lipgloss.Renderer) *Styles {
 }
 
 type model struct {
-	habits          []types.Habit
-	completions     []types.Completion
-	store           *storage.SQLiteStore
-	form            *huh.Form
-	lg              *lipgloss.Renderer
-	styles          *Styles
-	getView         func(m model) string
-	getUpdate       func(m model, msg tea.Msg) (tea.Model, tea.Cmd)
-	cursor          int
-	weekStart       time.Time
-	weekCompletions []types.Completion
-	calendarCol     int
-	scrollOffset    int
-	statsTab        int
+	habits            []types.Habit
+	completions       []types.Completion
+	streakCompletions []types.Completion
+	store             *storage.SQLiteStore
+	form              *huh.Form
+	lg                *lipgloss.Renderer
+	styles            *Styles
+	getView           func(m model) string
+	getUpdate         func(m model, msg tea.Msg) (tea.Model, tea.Cmd)
+	cursor            int
+	weekStart         time.Time
+	weekCompletions   []types.Completion
+	calendarCol       int
+	scrollOffset      int
+	statsTab          int
+	width             int
+	height            int
+	confirmingDelete  bool
 }
 
 func (m model) appBoundaryView(text string) string {
@@ -201,21 +205,28 @@ func InitViewState() model {
 		log.Fatalf("Error fetching week completions: %s", err)
 	}
 
+	streakStart := startOfDay(now.AddDate(-2, 0, 0))
+	streakCompletions, err := store.GetCompletionsByDateRange(context.Background(), streakStart, now)
+	if err != nil {
+		log.Fatalf("Error fetching streak completions: %s", err)
+	}
+
 	lg := lipgloss.DefaultRenderer()
 
 	return model{
-		habits:          habits,
-		completions:     completions,
-		form:            nil,
-		store:           store,
-		lg:              lg,
-		styles:          NewStyles(lg),
-		getView:         GetMainView,
-		getUpdate:       GetMainUpdate,
-		cursor:          0,
-		weekStart:       weekStart,
-		weekCompletions: weekCompletions,
-		calendarCol:     0,
+		habits:            habits,
+		completions:       completions,
+		streakCompletions: streakCompletions,
+		form:              nil,
+		store:             store,
+		lg:                lg,
+		styles:            NewStyles(lg),
+		getView:           GetMainView,
+		getUpdate:         GetMainUpdate,
+		cursor:            0,
+		weekStart:         weekStart,
+		weekCompletions:   weekCompletions,
+		calendarCol:       0,
 	}
 }
 
@@ -227,20 +238,48 @@ func (m model) Init() tea.Cmd {
 // Update
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
+		m.scrollOffset = clampScroll(m.scrollOffset, 0, maxScroll(m))
+		if m.form != nil {
+			applyFormSize(m.form, m.width, m.height)
+			// Don't forward to huh — it pads all groups to the tallest page height.
+			return m, nil
+		}
+		return m.getUpdate(m, msg)
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c":
 			defer m.store.Close()
 			return m, tea.Quit
 		case "esc":
+			if m.confirmingDelete {
+				m.confirmingDelete = false
+				return m, nil
+			}
 			completions, err := m.store.GetCompletionsByDate(context.Background(), time.Now())
 			if err != nil {
 				log.Printf("Error fetching today's completions: %s", err)
 			}
 			m.completions = completions
+			m = refreshStreakCompletions(m)
+			m.form = nil
+			m.confirmingDelete = false
+			m.scrollOffset = 0
 			m.getView = GetMainView
 			m.getUpdate = GetMainUpdate
 			return m, nil
+		case "pgup", "ctrl+u":
+			if m.form == nil {
+				m.scrollOffset = clampScroll(m.scrollOffset-pageScrollAmount(m), 0, maxScroll(m))
+				return m, nil
+			}
+		case "pgdown", "ctrl+d":
+			if m.form == nil {
+				m.scrollOffset = clampScroll(m.scrollOffset+pageScrollAmount(m), 0, maxScroll(m))
+				return m, nil
+			}
 		}
 	}
 	return m.getUpdate(m, msg)
@@ -248,5 +287,69 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // View
 func (m model) View() string {
-	return m.getView(m)
+	content := m.getView(m)
+	// Forms manage their own height/scrolling via huh; don't double-clip them.
+	if m.form != nil {
+		return content
+	}
+	return applyViewport(content, m.height, m.scrollOffset)
+}
+
+func pageScrollAmount(m model) int {
+	if m.height <= 2 {
+		return 1
+	}
+	return m.height / 2
+}
+
+func maxScroll(m model) int {
+	if m.height <= 0 {
+		return 0
+	}
+	lines := strings.Split(m.getView(m), "\n")
+	if len(lines) <= m.height {
+		return 0
+	}
+	return len(lines) - m.height
+}
+
+func clampScroll(offset, min, max int) int {
+	if offset < min {
+		return min
+	}
+	if offset > max {
+		return max
+	}
+	return offset
+}
+
+func applyViewport(content string, height, offset int) string {
+	if height <= 0 {
+		return content
+	}
+	lines := strings.Split(content, "\n")
+	if len(lines) <= height {
+		return content
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	maxOff := len(lines) - height
+	if offset > maxOff {
+		offset = maxOff
+	}
+	visible := lines[offset : offset+height]
+	return strings.Join(visible, "\n")
+}
+
+func refreshStreakCompletions(m model) model {
+	now := time.Now()
+	streakStart := startOfDay(now.AddDate(-2, 0, 0))
+	completions, err := m.store.GetCompletionsByDateRange(context.Background(), streakStart, now)
+	if err != nil {
+		log.Printf("Error fetching streak completions: %s", err)
+		return m
+	}
+	m.streakCompletions = completions
+	return m
 }

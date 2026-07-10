@@ -7,6 +7,7 @@ type Habit struct {
 	Frequency   string `json:"frequency"` // e.g. "daily" or "weekly"; default daily
 	Goal        int    `json:"goal"`      // e.g. 100; default 1
 	Color       string `json:"color"`     // red, blue, green, yellow, orange, purple, pink
+	Icon        string `json:"icon"`      // optional emoji icon
 	StartDate   string `json:"start_date"`
 	CreatedAt   string `json:"created_at"`
 	UpdatedAt   string `json:"updated_at"`

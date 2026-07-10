@@ -67,6 +67,7 @@ During development, habit data is still stored in `~/.habitui/habit.db`. To cust
 - **Customizable Habits**: Add, edit, and remove habits as needed.
 - **Daily Tracking**: Mark habits as completed for each day.
 - **Statistics**: View your progress and habit completion rates over time.
+- **Streaks**: See current streaks on the main view (shown after 3+ scheduled days in a row).
 - **Data Persistence**: Save your habit data locally for future reference.
 
 ## Configuration
@@ -119,10 +120,8 @@ Create a `habitui.config` file to customize colors. Available color keys:
 - [x] Add different colours for different habits
 - [x] Add different themes and ability to switch between them
 - [x] Populate the calendar view based on schedule
-- [ ] Add statistics for your habits completions
-- [ ] Add progress bars for weekly habit goals, inferred from habits schedule
-- [ ] Habit data and stats for selected habit in daily view
-- [ ] monthly view
+- [x] Add statistics for your habits completions
+- [x] Show current streak (🔥) for each habit on the main view
 - [x] make project simple to install, on linux and mac
-- [ ] Add an emoji icon picker to the habit creation and display emoji icon next to the habit in the main View
-- [ ] Add streak statistic displayed on main view.
+- [x] Add an emoji icon picker to the habit creation and display emoji icon next to the habit in the main View
+- [x] Add streak statistic displayed on main view (🔥 shown at 3+ scheduled days)

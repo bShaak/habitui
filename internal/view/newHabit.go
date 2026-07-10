@@ -2,8 +2,6 @@ package view
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"log"
 	"strconv"
 	"strings"
@@ -21,6 +19,7 @@ var (
 	StartDate   string
 	Description string
 	Color       string
+	Icon        string
 	Confirm     bool
 )
 
@@ -31,81 +30,23 @@ func resetCreateHabitFields() {
 	StartDate = ""
 	Description = ""
 	Color = "purple"
+	Icon = ""
 	Confirm = false
 }
 
 func CreateHabit() *huh.Form {
 	resetCreateHabitFields()
-	form := huh.NewForm(
-		huh.NewGroup(
-			huh.NewInput().
-				Title("Habit Name").
-				Key("name").
-				Value(&Name).
-				Validate(func(str string) error {
-					if str == "" {
-						return errors.New("name must not be empty")
-					}
-					return nil
-				}),
-			huh.NewInput().
-				Title("How many times per day do you want to track this habit?").
-				Key("goal").
-				Value(&GoalString).
-				Validate(func(str string) error {
-					goalInt, err := strconv.Atoi(str)
-					if err != nil {
-						return errors.New("goal must be a number")
-					}
-					if goalInt < 1 {
-						return errors.New("goal must be at least 1")
-					}
-					return nil
-				}),
-			huh.NewText().
-				Title("Habit Description").
-				Key("description").
-				CharLimit(400).
-				Value(&Description),
-			huh.NewMultiSelect[string]().
-				Title("What days of the week do you want to track this habit?").
-				Key("frequency").
-				Options(
-					huh.NewOption("Monday", "monday"),
-					huh.NewOption("Tuesday", "tuesday"),
-					huh.NewOption("Wednesday", "wednesday"),
-					huh.NewOption("Thursday", "thursday"),
-					huh.NewOption("Friday", "friday"),
-					huh.NewOption("Saturday", "saturday"),
-					huh.NewOption("Sunday", "sunday"),
-				).
-				Value(&Frequency),
-			huh.NewSelect[string]().
-				Title("What color should this habit be?").
-				Key("color").
-				Options(
-					huh.NewOption("Red", "red"),
-					huh.NewOption("Blue", "blue"),
-					huh.NewOption("Green", "green"),
-					huh.NewOption("Yellow", "yellow"),
-					huh.NewOption("Orange", "orange"),
-					huh.NewOption("Purple", "purple"),
-					huh.NewOption("Pink", "pink"),
-				).
-				Value(&Color),
-			huh.NewConfirm().
-				Title("Create Habit?").
-				Key("confirm").
-				Affirmative("Yes").
-				Negative("No").
-				Value(&Confirm),
-		),
-	).WithWidth(60).WithTheme(huh.ThemeCatppuccin())
-
-	return form
+	return habitForm(&Name, &GoalString, &Description, &Color, &Icon, &Frequency, &Confirm, "Create Habit?")
 }
 
 func GetCreateHabitUpdate(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
+	// huh expands every group to the tallest group's height on WindowSizeMsg;
+	// handle width ourselves and skip forwarding so the box stays content-sized.
+	if _, ok := msg.(tea.WindowSizeMsg); ok {
+		applyFormSize(m.form, m.width, m.height)
+		return m, nil
+	}
+
 	var cmds []tea.Cmd
 	form, cmd := m.form.Update(msg)
 	if f, ok := form.(*huh.Form); ok {
@@ -114,6 +55,7 @@ func GetCreateHabitUpdate(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 	if m.form.State == huh.StateCompleted {
 		if !Confirm {
+			m.form = nil
 			m.getView = GetMainView
 			m.getUpdate = GetMainUpdate
 			return m, nil
@@ -128,7 +70,6 @@ func GetCreateHabitUpdate(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
 		if frequency == "" {
 			frequency = "Daily"
 		}
-		fmt.Printf("Frequency: %s\n", frequency)
 		goal := m.form.GetString("goal")
 		goalInt, err := strconv.Atoi(goal)
 		if err != nil {
@@ -138,21 +79,24 @@ func GetCreateHabitUpdate(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
 		if color == "" {
 			color = "purple"
 		}
+		icon := m.form.GetString("icon")
 		habit := types.Habit{
 			Name:        name,
 			Description: description,
 			Frequency:   frequency,
 			Goal:        goalInt,
 			Color:       color,
+			Icon:        icon,
 			StartDate:   time.Now().Format(time.RFC3339),
 		}
 
 		h, err := m.store.CreateHabit(context.Background(), &habit)
-		m.habits = append(m.habits, *h)
 		if err != nil {
 			log.Fatalf("Error creating habit: %s", err)
 		}
+		m.habits = append(m.habits, *h)
 
+		m.form = nil
 		m.getView = GetMainView
 		m.getUpdate = GetMainUpdate
 	}
@@ -171,7 +115,7 @@ func GetCreateHabitView(m model) string {
 	var content strings.Builder
 	content.WriteString(m.form.View())
 	content.WriteString("\n\n")
-	help := s.Help.Render("esc: cancel  |  enter: confirm")
+	help := s.Help.Render("tab: next  |  shift+tab: back  |  esc: cancel")
 	content.WriteString(help)
 	b.WriteString(s.ContentBox.Render(content.String()))
 	return s.Base.Render(b.String())

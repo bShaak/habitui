@@ -58,6 +58,7 @@ func (s *SQLiteStore) migrate() error {
 			frequency TEXT NOT NULL DEFAULT 'daily',
 			goal INTEGER NOT NULL DEFAULT 1,
 			color TEXT NOT NULL DEFAULT 'purple',
+			icon TEXT NOT NULL DEFAULT '',
 			start_date TEXT NOT NULL,
 			created_at TEXT NOT NULL,
 			updated_at TEXT NOT NULL,
@@ -74,6 +75,14 @@ func (s *SQLiteStore) migrate() error {
 	`)
 	if err != nil && err.Error() != "duplicate column name: color" {
 		// Ignore "duplicate column name" error, but return other errors
+		return err
+	}
+
+	// Add icon column if it doesn't exist (for existing databases)
+	_, err = s.DB.Exec(`
+		ALTER TABLE habits ADD COLUMN icon TEXT NOT NULL DEFAULT '';
+	`)
+	if err != nil && err.Error() != "duplicate column name: icon" {
 		return err
 	}
 
@@ -125,9 +134,9 @@ func (s *SQLiteStore) CreateHabit(ctx context.Context, h *models.Habit) (*models
 	h.UpdatedAt = now.Format(time.RFC3339)
 
 	res, err := s.DB.ExecContext(ctx, `
-		INSERT INTO habits(name, description, frequency, goal, color, start_date, created_at, updated_at)
-		VALUES(?, ?, ?, ?, ?, ?, ?, ?)`,
-		h.Name, h.Description, h.Frequency, h.Goal, h.Color, h.StartDate, h.CreatedAt, h.UpdatedAt)
+		INSERT INTO habits(name, description, frequency, goal, color, icon, start_date, created_at, updated_at)
+		VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		h.Name, h.Description, h.Frequency, h.Goal, h.Color, h.Icon, h.StartDate, h.CreatedAt, h.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -147,9 +156,9 @@ func (s *SQLiteStore) UpdateHabit(ctx context.Context, h *models.Habit) error {
 	h.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
 	_, err := s.DB.ExecContext(ctx, `
 		UPDATE habits
-		SET name = ?, description = ?, frequency = ?, goal = ?, color = ?, start_date = ?, updated_at = ?
+		SET name = ?, description = ?, frequency = ?, goal = ?, color = ?, icon = ?, start_date = ?, updated_at = ?
 		WHERE id = ?`,
-		h.Name, h.Description, h.Frequency, h.Goal, h.Color, h.StartDate, h.UpdatedAt, h.ID)
+		h.Name, h.Description, h.Frequency, h.Goal, h.Color, h.Icon, h.StartDate, h.UpdatedAt, h.ID)
 	return err
 }
 
@@ -165,7 +174,7 @@ func (s *SQLiteStore) DeleteHabit(ctx context.Context, id int64) error {
 // ListHabits returns all habits ordered by created_at.
 func (s *SQLiteStore) ListHabits(ctx context.Context) ([]models.Habit, error) {
 	rows, err := s.DB.QueryContext(ctx, `
-		SELECT id, name, description, frequency, goal, color, start_date, created_at, updated_at
+		SELECT id, name, description, frequency, goal, color, icon, start_date, created_at, updated_at
 		FROM habits
 		ORDER BY created_at ASC`)
 	if err != nil {
@@ -177,7 +186,7 @@ func (s *SQLiteStore) ListHabits(ctx context.Context) ([]models.Habit, error) {
 	for rows.Next() {
 		var h models.Habit
 		var startDateStr, createdAtStr, updatedAtStr string
-		if err := rows.Scan(&h.ID, &h.Name, &h.Description, &h.Frequency, &h.Goal, &h.Color, &startDateStr, &createdAtStr, &updatedAtStr); err != nil {
+		if err := rows.Scan(&h.ID, &h.Name, &h.Description, &h.Frequency, &h.Goal, &h.Color, &h.Icon, &startDateStr, &createdAtStr, &updatedAtStr); err != nil {
 			return nil, err
 		}
 		h.StartDate = startDateStr
