@@ -2,6 +2,9 @@ package view
 
 import (
 	"strings"
+	"time"
+
+	"github.com/bShaak/habitui/internal/models"
 )
 
 var allWeekdays = []string{
@@ -13,6 +16,19 @@ func effectiveGoal(goal int) int {
 		return 1
 	}
 	return goal
+}
+
+func startOfDay(t time.Time) time.Time {
+	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
+}
+
+func endOfDay(t time.Time) time.Time {
+	return time.Date(t.Year(), t.Month(), t.Day(), 23, 59, 59, 999999999, t.Location())
+}
+
+func inDayBounds(t, day time.Time) bool {
+	start, end := startOfDay(day), endOfDay(day)
+	return (t.Equal(start) || t.After(start)) && (t.Equal(end) || t.Before(end))
 }
 
 // normalizeFrequency stores empty or all-days schedules as "daily".
@@ -76,4 +92,71 @@ func truncateRunes(s string, max int) string {
 		return "…"
 	}
 	return string(runes[:max-1]) + "…"
+}
+
+func parseFrequency(frequency string) map[string]bool {
+	days := make(map[string]bool)
+	for _, d := range strings.Split(strings.ToLower(frequency), ",") {
+		d = strings.TrimSpace(d)
+		if d != "" {
+			days[d] = true
+		}
+	}
+	return days
+}
+
+func getDayName(t time.Time) string {
+	return strings.ToLower(t.Weekday().String())
+}
+
+func isScheduledOnDay(frequency string, dayName string) bool {
+	if frequency == "" || strings.ToLower(frequency) == "daily" {
+		return true
+	}
+	days := parseFrequency(frequency)
+	return days[dayName]
+}
+
+func getCompletionsForHabitAndDate(completions []models.Completion, habitID int64, date time.Time) int {
+	count := 0
+	for _, c := range completions {
+		if c.HabitID != habitID {
+			continue
+		}
+		completedAt, err := time.Parse(time.RFC3339, c.CompletedAt)
+		if err != nil {
+			continue
+		}
+		if inDayBounds(completedAt, date) {
+			count++
+		}
+	}
+	return count
+}
+
+func isCompleted(completions []models.Completion, h models.Habit) bool {
+	return todayCompletionCount(completions, h.ID) >= effectiveGoal(h.Goal)
+}
+
+func todayCompletionCount(completions []models.Completion, habitID int64) int {
+	count := 0
+	for _, c := range completions {
+		if c.HabitID == habitID {
+			count++
+		}
+	}
+	return count
+}
+
+func formatHabitLabel(habit models.Habit) string {
+	if habit.Icon != "" {
+		return habit.Icon + " " + habit.Name
+	}
+	return habit.Name
+}
+
+func getMonday(t time.Time) time.Time {
+	weekday := t.Weekday()
+	daysSinceMonday := (int(weekday) + 6) % 7
+	return startOfDay(t.AddDate(0, 0, -daysSinceMonday))
 }

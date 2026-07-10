@@ -4,20 +4,51 @@ import (
 	"errors"
 	"strconv"
 
+	"github.com/bShaak/habitui/internal/models"
 	"github.com/charmbracelet/huh"
 )
 
-const (
-	formSelectHeight = 6
-)
+const formSelectHeight = 6
 
-func habitForm(name, goal, description, color, icon *string, frequency *[]string, confirm *bool, confirmTitle string) *huh.Form {
+type habitFormFields struct {
+	Name        string
+	Frequency   []string
+	GoalString  string
+	Description string
+	Color       string
+	Icon        string
+	Confirm     bool
+}
+
+func newHabitFormFields() *habitFormFields {
+	return &habitFormFields{
+		Color: "purple",
+	}
+}
+
+func habitFormFieldsFromHabit(habit models.Habit) *habitFormFields {
+	color := habit.Color
+	if color == "" {
+		color = "purple"
+	}
+	return &habitFormFields{
+		Name:        habit.Name,
+		GoalString:  strconv.Itoa(effectiveGoal(habit.Goal)),
+		Description: habit.Description,
+		Frequency:   frequencyDaysForForm(habit.Frequency),
+		Color:       color,
+		Icon:        habit.Icon,
+		Confirm:     false,
+	}
+}
+
+func buildHabitForm(fields *habitFormFields, confirmTitle string) *huh.Form {
 	return huh.NewForm(
 		huh.NewGroup(
 			huh.NewInput().
 				Title("Habit Name").
 				Key("name").
-				Value(name).
+				Value(&fields.Name).
 				Validate(func(str string) error {
 					if str == "" {
 						return errors.New("name must not be empty")
@@ -27,7 +58,7 @@ func habitForm(name, goal, description, color, icon *string, frequency *[]string
 			huh.NewInput().
 				Title("Times per day").
 				Key("goal").
-				Value(goal).
+				Value(&fields.GoalString).
 				Validate(func(str string) error {
 					goalInt, err := strconv.Atoi(str)
 					if err != nil {
@@ -43,7 +74,7 @@ func habitForm(name, goal, description, color, icon *string, frequency *[]string
 				Key("description").
 				CharLimit(400).
 				Lines(2).
-				Value(description),
+				Value(&fields.Description),
 		),
 		huh.NewGroup(
 			huh.NewMultiSelect[string]().
@@ -59,7 +90,7 @@ func habitForm(name, goal, description, color, icon *string, frequency *[]string
 					huh.NewOption("Sunday", "sunday"),
 				).
 				Height(formSelectHeight).
-				Value(frequency),
+				Value(&fields.Frequency),
 		),
 		huh.NewGroup(
 			huh.NewSelect[string]().
@@ -75,13 +106,13 @@ func habitForm(name, goal, description, color, icon *string, frequency *[]string
 					huh.NewOption("Pink", "pink"),
 				).
 				Height(formSelectHeight).
-				Value(color),
+				Value(&fields.Color),
 			huh.NewSelect[string]().
 				Title("Icon").
 				Key("icon").
 				Options(habitIconOptions()...).
 				Height(formSelectHeight).
-				Value(icon),
+				Value(&fields.Icon),
 		),
 		huh.NewGroup(
 			huh.NewConfirm().
@@ -89,7 +120,7 @@ func habitForm(name, goal, description, color, icon *string, frequency *[]string
 				Key("confirm").
 				Affirmative("Yes").
 				Negative("No").
-				Value(confirm),
+				Value(&fields.Confirm),
 		),
 	).WithWidth(60).WithTheme(huh.ThemeCatppuccin())
 }
@@ -111,4 +142,11 @@ func applyFormSize(form *huh.Form, width, height int) {
 	// Intentionally skip WithHeight so the form (and outer box) shrink to content.
 	// Field Heights + multi-page groups keep long lists scrollable without empty space.
 	_ = height
+}
+
+func formFrequency(fields *habitFormFields) string {
+	if fields == nil {
+		return "daily"
+	}
+	return normalizeFrequency(fields.Frequency)
 }

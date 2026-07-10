@@ -15,7 +15,7 @@ import (
 
 // SQLiteStore provides persistence for habits using an embedded SQLite database.
 type SQLiteStore struct {
-	DB *sql.DB
+	db *sql.DB
 }
 
 func getDBPath() string {
@@ -49,7 +49,7 @@ func OpenSQLiteAt(dbPath string) (*SQLiteStore, error) {
 		_ = db.Close()
 		return nil, err
 	}
-	store := &SQLiteStore{DB: db}
+	store := &SQLiteStore{db: db}
 	if err := store.migrate(); err != nil {
 		_ = db.Close()
 		return nil, err
@@ -62,72 +62,97 @@ func isDuplicateColumnErr(err error) bool {
 }
 
 func (s *SQLiteStore) migrate() error {
-	// Create habits table
-	_, err := s.DB.Exec(`
+	if _, err := s.db.Exec(`
+		CREATE TABLE IF NOT EXISTS schema_migrations (
+			version INTEGER PRIMARY KEY
+		);
+	`); err != nil {
+		return err
+	}
+
+	var version int
+	if err := s.db.QueryRow(`SELECT COALESCE(MAX(version), 0) FROM schema_migrations`).Scan(&version); err != nil {
+		return err
+	}
+
+	migrations := []func() error{
+		s.migrateV1,
+		s.migrateV2,
+		s.migrateV3,
+	}
+	for i, fn := range migrations {
+		v := i + 1
+		if version >= v {
+			continue
+		}
+		if err := fn(); err != nil {
+			return err
+		}
+		if _, err := s.db.Exec(`INSERT INTO schema_migrations(version) VALUES(?)`, v); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *SQLiteStore) migrateV1() error {
+	if _, err := s.db.Exec(`
 		CREATE TABLE IF NOT EXISTS habits (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			name TEXT NOT NULL,
 			description TEXT NOT NULL DEFAULT '',
 			frequency TEXT NOT NULL DEFAULT 'daily',
 			goal INTEGER NOT NULL DEFAULT 1,
-			color TEXT NOT NULL DEFAULT 'purple',
-			icon TEXT NOT NULL DEFAULT '',
 			start_date TEXT NOT NULL,
 			created_at TEXT NOT NULL,
 			updated_at TEXT NOT NULL,
 			archived_at TEXT NULL
 		);
-	`)
-	if err != nil {
+	`); err != nil {
 		return err
 	}
 
-	// Add color column if it doesn't exist (for existing databases)
-	_, err = s.DB.Exec(`
-		ALTER TABLE habits ADD COLUMN color TEXT NOT NULL DEFAULT 'purple';
-	`)
-	if err != nil && !isDuplicateColumnErr(err) {
-		return err
-	}
-
-	// Add icon column if it doesn't exist (for existing databases)
-	_, err = s.DB.Exec(`
-		ALTER TABLE habits ADD COLUMN icon TEXT NOT NULL DEFAULT '';
-	`)
-	if err != nil && !isDuplicateColumnErr(err) {
-		return err
-	}
-
-	// Create completions table
-	_, err = s.DB.Exec(`
+	if _, err := s.db.Exec(`
 		CREATE TABLE IF NOT EXISTS completions (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			habit_id INTEGER NOT NULL,
 			completed_at TEXT NOT NULL,
 			FOREIGN KEY (habit_id) REFERENCES habits (id) ON DELETE CASCADE
 		);
-	`)
-	if err != nil {
+	`); err != nil {
 		return err
 	}
 
-	// Create indexes for faster completions queries
-	_, err = s.DB.Exec(`
+	if _, err := s.db.Exec(`
 		CREATE INDEX IF NOT EXISTS idx_completions_habit_id_completed_at ON completions (habit_id, completed_at);
-	`)
-	if err != nil {
+	`); err != nil {
 		return err
 	}
 
-	_, err = s.DB.Exec(`
+	_, err := s.db.Exec(`
 		CREATE INDEX IF NOT EXISTS idx_completions_completed_at ON completions (completed_at);
 	`)
-
 	return err
 }
 
+func (s *SQLiteStore) migrateV2() error {
+	_, err := s.db.Exec(`ALTER TABLE habits ADD COLUMN color TEXT NOT NULL DEFAULT 'purple'`)
+	if err != nil && !isDuplicateColumnErr(err) {
+		return err
+	}
+	return nil
+}
+
+func (s *SQLiteStore) migrateV3() error {
+	_, err := s.db.Exec(`ALTER TABLE habits ADD COLUMN icon TEXT NOT NULL DEFAULT ''`)
+	if err != nil && !isDuplicateColumnErr(err) {
+		return err
+	}
+	return nil
+}
+
 // Close closes the database connection.
-func (s *SQLiteStore) Close() error { return s.DB.Close() }
+func (s *SQLiteStore) Close() error { return s.db.Close() }
 
 func normalizeHabitDefaults(h *models.Habit) {
 	if h.Frequency == "" {
@@ -162,7 +187,7 @@ func (s *SQLiteStore) CreateHabit(ctx context.Context, h *models.Habit) (*models
 	h.CreatedAt = now.Format(time.RFC3339)
 	h.UpdatedAt = now.Format(time.RFC3339)
 
-	res, err := s.DB.ExecContext(ctx, `
+	res, err := s.db.ExecContext(ctx, `
 		INSERT INTO habits(name, description, frequency, goal, color, icon, start_date, created_at, updated_at)
 		VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		h.Name, h.Description, h.Frequency, h.Goal, h.Color, h.Icon, h.StartDate, h.CreatedAt, h.UpdatedAt)
@@ -184,7 +209,7 @@ func (s *SQLiteStore) UpdateHabit(ctx context.Context, h *models.Habit) error {
 	}
 	normalizeHabitDefaults(h)
 	h.UpdatedAt = time.Now().Format(time.RFC3339)
-	_, err := s.DB.ExecContext(ctx, `
+	_, err := s.db.ExecContext(ctx, `
 		UPDATE habits
 		SET name = ?, description = ?, frequency = ?, goal = ?, color = ?, icon = ?, start_date = ?, updated_at = ?
 		WHERE id = ?`,
@@ -197,7 +222,7 @@ func (s *SQLiteStore) DeleteHabit(ctx context.Context, id int64) error {
 	if id == 0 {
 		return errors.New("invalid id")
 	}
-	tx, err := s.DB.BeginTx(ctx, nil)
+	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -214,7 +239,7 @@ func (s *SQLiteStore) DeleteHabit(ctx context.Context, id int64) error {
 
 // ListHabits returns all habits ordered by created_at.
 func (s *SQLiteStore) ListHabits(ctx context.Context) ([]models.Habit, error) {
-	rows, err := s.DB.QueryContext(ctx, `
+	rows, err := s.db.QueryContext(ctx, `
 		SELECT id, name, description, frequency, goal, color, icon, start_date, created_at, updated_at
 		FROM habits
 		ORDER BY created_at ASC`)
@@ -226,13 +251,12 @@ func (s *SQLiteStore) ListHabits(ctx context.Context) ([]models.Habit, error) {
 	var out []models.Habit
 	for rows.Next() {
 		var h models.Habit
-		var startDateStr, createdAtStr, updatedAtStr string
-		if err := rows.Scan(&h.ID, &h.Name, &h.Description, &h.Frequency, &h.Goal, &h.Color, &h.Icon, &startDateStr, &createdAtStr, &updatedAtStr); err != nil {
+		if err := rows.Scan(
+			&h.ID, &h.Name, &h.Description, &h.Frequency, &h.Goal, &h.Color, &h.Icon,
+			&h.StartDate, &h.CreatedAt, &h.UpdatedAt,
+		); err != nil {
 			return nil, err
 		}
-		h.StartDate = startDateStr
-		h.CreatedAt = createdAtStr
-		h.UpdatedAt = updatedAtStr
 		out = append(out, h)
 	}
 	return out, rows.Err()
@@ -245,7 +269,7 @@ func (s *SQLiteStore) CreateCompletion(ctx context.Context, c *models.Completion
 	if c.CompletedAt == "" {
 		c.CompletedAt = time.Now().Format(time.RFC3339)
 	}
-	res, err := s.DB.ExecContext(ctx, `
+	res, err := s.db.ExecContext(ctx, `
 		INSERT INTO completions(habit_id, completed_at)
 		VALUES(?, ?)`,
 		c.HabitID, c.CompletedAt)
@@ -264,12 +288,12 @@ func (s *SQLiteStore) DeleteCompletion(ctx context.Context, id int64) error {
 	if id == 0 {
 		return errors.New("invalid id")
 	}
-	_, err := s.DB.ExecContext(ctx, `DELETE FROM completions WHERE id = ?`, id)
+	_, err := s.db.ExecContext(ctx, `DELETE FROM completions WHERE id = ?`, id)
 	return err
 }
 
 func (s *SQLiteStore) ListCompletions(ctx context.Context) ([]models.Completion, error) {
-	rows, err := s.DB.QueryContext(ctx, `
+	rows, err := s.db.QueryContext(ctx, `
 		SELECT id, habit_id, completed_at
 		FROM completions
 		ORDER BY completed_at ASC`)
@@ -277,20 +301,7 @@ func (s *SQLiteStore) ListCompletions(ctx context.Context) ([]models.Completion,
 		return nil, err
 	}
 	defer rows.Close()
-	var completions []models.Completion
-	for rows.Next() {
-		var c models.Completion
-		var completedAtStr string
-		if err := rows.Scan(&c.ID, &c.HabitID, &completedAtStr); err != nil {
-			return nil, err
-		}
-		c.CompletedAt = completedAtStr
-		completions = append(completions, c)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return completions, nil
+	return scanCompletions(rows)
 }
 
 func dayBounds(date time.Time) (time.Time, time.Time) {
@@ -303,11 +314,9 @@ func scanCompletions(rows *sql.Rows) ([]models.Completion, error) {
 	var completions []models.Completion
 	for rows.Next() {
 		var c models.Completion
-		var completedAtStr string
-		if err := rows.Scan(&c.ID, &c.HabitID, &completedAtStr); err != nil {
+		if err := rows.Scan(&c.ID, &c.HabitID, &c.CompletedAt); err != nil {
 			return nil, err
 		}
-		c.CompletedAt = completedAtStr
 		completions = append(completions, c)
 	}
 	return completions, rows.Err()
@@ -330,13 +339,26 @@ func filterCompletionsInRange(completions []models.Completion, start, end time.T
 	return out
 }
 
-func (s *SQLiteStore) GetCompletionsByHabitIdAndDate(ctx context.Context, habitId int64, date time.Time) ([]models.Completion, error) {
-	start, end := dayBounds(date)
-	rows, err := s.DB.QueryContext(ctx, `
-		SELECT id, habit_id, completed_at
-		FROM completions
-		WHERE habit_id = ?`,
-		habitId)
+func (s *SQLiteStore) queryCompletionsInPaddedRange(ctx context.Context, start, end time.Time, habitID *int64) ([]models.Completion, error) {
+	var (
+		rows *sql.Rows
+		err  error
+	)
+	padStart := start.Add(-24 * time.Hour).Format(time.RFC3339)
+	padEnd := end.Add(24 * time.Hour).Format(time.RFC3339)
+	if habitID != nil {
+		rows, err = s.db.QueryContext(ctx, `
+			SELECT id, habit_id, completed_at
+			FROM completions
+			WHERE habit_id = ? AND completed_at >= ? AND completed_at <= ?`,
+			*habitID, padStart, padEnd)
+	} else {
+		rows, err = s.db.QueryContext(ctx, `
+			SELECT id, habit_id, completed_at
+			FROM completions
+			WHERE completed_at >= ? AND completed_at <= ?`,
+			padStart, padEnd)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -348,12 +370,17 @@ func (s *SQLiteStore) GetCompletionsByHabitIdAndDate(ctx context.Context, habitI
 	return filterCompletionsInRange(completions, start, end), nil
 }
 
-func (s *SQLiteStore) GetCompletionsByHabitId(ctx context.Context, habitId int64) ([]models.Completion, error) {
-	rows, err := s.DB.QueryContext(ctx, `
+func (s *SQLiteStore) GetCompletionsByHabitIDAndDate(ctx context.Context, habitID int64, date time.Time) ([]models.Completion, error) {
+	start, end := dayBounds(date)
+	return s.queryCompletionsInPaddedRange(ctx, start, end, &habitID)
+}
+
+func (s *SQLiteStore) GetCompletionsByHabitID(ctx context.Context, habitID int64) ([]models.Completion, error) {
+	rows, err := s.db.QueryContext(ctx, `
 		SELECT id, habit_id, completed_at
 		FROM completions
 		WHERE habit_id = ?`,
-		habitId)
+		habitID)
 	if err != nil {
 		return nil, err
 	}
@@ -363,40 +390,13 @@ func (s *SQLiteStore) GetCompletionsByHabitId(ctx context.Context, habitId int64
 
 func (s *SQLiteStore) GetCompletionsByDate(ctx context.Context, date time.Time) ([]models.Completion, error) {
 	start, end := dayBounds(date)
-	// Pull a padded string window, then filter by parsed instant for timezone safety.
-	rows, err := s.DB.QueryContext(ctx, `
-		SELECT id, habit_id, completed_at
-		FROM completions
-		WHERE completed_at >= ? AND completed_at <= ?`,
-		start.Add(-24*time.Hour).Format(time.RFC3339),
-		end.Add(24*time.Hour).Format(time.RFC3339))
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	completions, err := scanCompletions(rows)
-	if err != nil {
-		return nil, err
-	}
-	return filterCompletionsInRange(completions, start, end), nil
+	return s.queryCompletionsInPaddedRange(ctx, start, end, nil)
 }
 
 func (s *SQLiteStore) GetCompletionsByDateRange(ctx context.Context, startDate, endDate time.Time) ([]models.Completion, error) {
 	start, _ := dayBounds(startDate)
 	_, end := dayBounds(endDate)
-	rows, err := s.DB.QueryContext(ctx, `
-		SELECT id, habit_id, completed_at
-		FROM completions
-		WHERE completed_at >= ? AND completed_at <= ?`,
-		start.Add(-24*time.Hour).Format(time.RFC3339),
-		end.Add(24*time.Hour).Format(time.RFC3339))
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	completions, err := scanCompletions(rows)
-	if err != nil {
-		return nil, err
-	}
-	return filterCompletionsInRange(completions, start, end), nil
+	return s.queryCompletionsInPaddedRange(ctx, start, end, nil)
 }
+
+var _ Store = (*SQLiteStore)(nil)

@@ -5,9 +5,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
-	"time"
 
-	types "github.com/bShaak/habitui/internal/models"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -18,60 +16,11 @@ var (
 	dayNames       = []string{"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"}
 )
 
-func parseFrequency(frequency string) map[string]bool {
-	days := make(map[string]bool)
-	for _, d := range strings.Split(strings.ToLower(frequency), ",") {
-		d = strings.TrimSpace(d)
-		if d != "" {
-			days[d] = true
-		}
-	}
-	return days
-}
-
-func getDayName(t time.Time) string {
-	return strings.ToLower(t.Weekday().String())
-}
-
-func getCompletionsForHabitAndDate(completions []types.Completion, habitID int64, date time.Time) int {
-	count := 0
-	startOfDay := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, date.Location())
-	endOfDay := time.Date(date.Year(), date.Month(), date.Day(), 23, 59, 59, 999999999, date.Location())
-
-	for _, c := range completions {
-		if c.HabitID != habitID {
-			continue
-		}
-		completedAt, err := time.Parse(time.RFC3339, c.CompletedAt)
-		if err != nil {
-			continue
-		}
-		if (completedAt.Equal(startOfDay) || completedAt.After(startOfDay)) &&
-			(completedAt.Equal(endOfDay) || completedAt.Before(endOfDay)) {
-			count++
-		}
-	}
-	return count
-}
-
-func isScheduledOnDay(frequency string, dayName string) bool {
-	if frequency == "" || strings.ToLower(frequency) == "daily" {
-		return true
-	}
-	days := parseFrequency(frequency)
-	return days[dayName]
-}
-
-func getCalendarHabitColor(color string) lipgloss.Color {
-	return GetHabitColor(color)
-}
-
-func GetCalendarUpdate(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
+func updateCalendar(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "q":
-			defer m.store.Close()
 			return m, tea.Quit
 		case "j":
 			if len(m.habits) > 0 && m.cursor < len(m.habits)-1 {
@@ -113,68 +62,18 @@ func GetCalendarUpdate(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			selectedHabit := m.habits[m.cursor]
 			selectedDate := m.weekStart.AddDate(0, 0, m.calendarCol)
-
-			completionCount := getCompletionsForHabitAndDate(m.weekCompletions, selectedHabit.ID, selectedDate)
-			goal := effectiveGoal(selectedHabit.Goal)
-
-			if completionCount >= goal {
-				completions, err := m.store.GetCompletionsByHabitId(context.Background(), selectedHabit.ID)
-				if err != nil {
-					log.Printf("Error retrieving completions: %s", err)
-					return m, nil
-				}
-				startOfDay := time.Date(selectedDate.Year(), selectedDate.Month(), selectedDate.Day(), 0, 0, 0, 0, selectedDate.Location())
-				endOfDay := time.Date(selectedDate.Year(), selectedDate.Month(), selectedDate.Day(), 23, 59, 59, 999999999, selectedDate.Location())
-
-				for _, c := range completions {
-					completedAt, err := time.Parse(time.RFC3339, c.CompletedAt)
-					if err != nil {
-						continue
-					}
-					if (completedAt.Equal(startOfDay) || completedAt.After(startOfDay)) &&
-						(completedAt.Equal(endOfDay) || completedAt.Before(endOfDay)) {
-						err := m.store.DeleteCompletion(context.Background(), c.ID)
-						if err != nil {
-							log.Printf("Error deleting completion: %s", err)
-						}
-					}
-				}
-				var updated []types.Completion
-				for _, c := range m.weekCompletions {
-					completedAt, err := time.Parse(time.RFC3339, c.CompletedAt)
-					if err != nil {
-						updated = append(updated, c)
-						continue
-					}
-					if !(c.HabitID == selectedHabit.ID &&
-						(completedAt.Equal(startOfDay) || completedAt.After(startOfDay)) &&
-						(completedAt.Equal(endOfDay) || completedAt.Before(endOfDay))) {
-						updated = append(updated, c)
-					}
-				}
-				m.weekCompletions = updated
-			} else {
-				now := time.Now()
-				selectedDateTime := time.Date(
-					selectedDate.Year(), selectedDate.Month(), selectedDate.Day(),
-					now.Hour(), now.Minute(), now.Second(), 0, now.Location(),
-				)
-				c, err := m.store.CreateCompletion(context.Background(), &types.Completion{
-					HabitID:     selectedHabit.ID,
-					CompletedAt: selectedDateTime.Format(time.RFC3339),
-				})
-				if err != nil {
-					log.Printf("Error creating completion: %s", err)
-					return m, nil
-				}
-				m.weekCompletions = append(m.weekCompletions, *c)
+			updated, err := m.toggleDayCompletion(selectedHabit, selectedDate, m.weekCompletions)
+			if err != nil {
+				log.Printf("Error toggling completion: %s", err)
+				return m, nil
 			}
+			m.weekCompletions = updated
 		}
 	}
 	return m, nil
 }
 
-func GetCalendarView(m model) string {
+func viewCalendar(m Model) string {
 	s := m.styles
 	var b strings.Builder
 	b.WriteString(m.renderTitle())
@@ -221,7 +120,7 @@ func GetCalendarView(m model) string {
 		content.WriteString(s.Help.Render("No habits created yet.\n\nPress 'a' from main view to create a new one."))
 	} else {
 		for row, habit := range m.habits {
-			habitColor := getCalendarHabitColor(habit.Color)
+			habitColor := getHabitColor(habit.Color)
 			nameStyle := lipgloss.NewStyle().Width(habitNameWidth).Foreground(habitColor)
 			if row == m.cursor {
 				nameStyle = nameStyle.Bold(true)

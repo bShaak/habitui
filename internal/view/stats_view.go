@@ -8,12 +8,11 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-func GetStatsUpdate(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
+func updateStats(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "q":
-			defer m.store.Close()
 			return m, tea.Quit
 		case "left":
 			if m.statsTab > 0 {
@@ -28,7 +27,7 @@ func GetStatsUpdate(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func GetStatsView(m model) string {
+func viewStats(m Model) string {
 	s := m.styles
 	var b strings.Builder
 	b.WriteString(m.renderTitle())
@@ -98,7 +97,7 @@ func GetStatsView(m model) string {
 			content.WriteString(statLabelStyle.Render("  Completed: "))
 			content.WriteString(statValueStyle.Render(completedStr))
 
-			rateStr := fmt.Sprintf("%.0f%%", stats.CompletionRate)
+			rateStr := formatRate(stats.CompletionRate)
 			content.WriteString(statLabelStyle.Render("Rate: "))
 			content.WriteString(statValueStyle.Render(rateStr))
 			content.WriteString("\n")

@@ -7,37 +7,11 @@ import (
 	"strings"
 	"time"
 
-	types "github.com/bShaak/habitui/internal/models"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
 
-func IsCompleted(completions []types.Completion, h *types.Habit) bool {
-	completionCount := 0
-	for _, c := range completions {
-		if c.HabitID == h.ID {
-			completionCount++
-		}
-	}
-	return completionCount >= effectiveGoal(h.Goal)
-}
-
-func todayCompletionCount(completions []types.Completion, habitID int64) int {
-	count := 0
-	for _, c := range completions {
-		if c.HabitID == habitID {
-			count++
-		}
-	}
-	return count
-}
-
-func getHabitColor(color string) lipgloss.Color {
-	return GetHabitColor(color)
-}
-
-// Update
-func GetMainUpdate(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
+func updateMain(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		if m.confirmingDelete {
@@ -54,15 +28,15 @@ func GetMainUpdate(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		switch msg.String() {
 		case "q":
-			defer m.store.Close()
 			return m, tea.Quit
 		case "a":
 			m.statusMsg = ""
-			m.form = CreateHabit()
+			form, fields := createHabitForm()
+			m.form = form
+			m.formFields = fields
 			applyFormSize(m.form, m.width, m.height)
 			m.scrollOffset = 0
-			m.getView = GetCreateHabitView
-			m.getUpdate = GetCreateHabitUpdate
+			m.screen = screenCreateHabit
 			return m, m.form.Init()
 		case "c":
 			m.statusMsg = ""
@@ -82,8 +56,7 @@ func GetMainUpdate(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.calendarCol = 0
 			m.scrollOffset = 0
-			m.getView = GetCalendarView
-			m.getUpdate = GetCalendarUpdate
+			m.screen = screenCalendar
 			return m, nil
 		case "s":
 			m.statusMsg = ""
@@ -102,19 +75,19 @@ func GetMainUpdate(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.statsCompletions = statsCompletions
 			m.statsTab = 0
 			m.scrollOffset = 0
-			m.getView = GetStatsView
-			m.getUpdate = GetStatsUpdate
+			m.screen = screenStats
 			return m, nil
 		case "e":
 			m.statusMsg = ""
 			if len(m.habits) == 0 {
 				return m, nil
 			}
-			m.form = EditHabit(m.habits[m.cursor])
+			form, fields := editHabitForm(m.habits[m.cursor])
+			m.form = form
+			m.formFields = fields
 			applyFormSize(m.form, m.width, m.height)
 			m.scrollOffset = 0
-			m.getView = GetEditHabitView
-			m.getUpdate = GetEditHabitUpdate
+			m.screen = screenEditHabit
 			return m, m.form.Init()
 		case "k":
 			if m.cursor > 0 {
@@ -134,58 +107,19 @@ func GetMainUpdate(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			selected := m.habits[m.cursor]
 			m.statusMsg = ""
-			if !IsCompleted(m.completions, &selected) {
-				c, err := m.store.CreateCompletion(context.Background(), &types.Completion{HabitID: selected.ID, CompletedAt: time.Now().Format(time.RFC3339)})
-				if err != nil {
-					log.Printf("Error creating completion: %s", err)
-					return m, nil
-				}
-				m.completions = append(m.completions, *c)
-			} else {
-				completions, err := m.store.GetCompletionsByHabitId(context.Background(), selected.ID)
-				if err != nil {
-					log.Printf("Error retrieving completions: %s", err)
-					return m, nil
-				}
-				now := time.Now()
-				dayStart := startOfDay(now)
-				dayEnd := endOfDay(now)
-
-				for _, c := range completions {
-					completedAt, err := time.Parse(time.RFC3339, c.CompletedAt)
-					if err != nil {
-						continue
-					}
-					if (completedAt.Equal(dayStart) || completedAt.After(dayStart)) &&
-						(completedAt.Equal(dayEnd) || completedAt.Before(dayEnd)) {
-						err := m.store.DeleteCompletion(context.Background(), c.ID)
-						if err != nil {
-							log.Printf("Error deleting completion: %s", err)
-						}
-					}
-				}
-				var updated []types.Completion
-				for _, c := range m.completions {
-					completedAt, err := time.Parse(time.RFC3339, c.CompletedAt)
-					if err != nil {
-						updated = append(updated, c)
-						continue
-					}
-					if !(c.HabitID == selected.ID &&
-						(completedAt.Equal(dayStart) || completedAt.After(dayStart)) &&
-						(completedAt.Equal(dayEnd) || completedAt.Before(dayEnd))) {
-						updated = append(updated, c)
-					}
-				}
-				m.completions = updated
+			updated, err := m.toggleDayCompletion(selected, time.Now(), m.completions)
+			if err != nil {
+				log.Printf("Error toggling completion: %s", err)
+				return m, nil
 			}
+			m.completions = updated
 			m = refreshStreakCompletions(m)
 		}
 	}
 	return m, nil
 }
 
-func deleteSelectedHabit(m model) model {
+func deleteSelectedHabit(m Model) Model {
 	if len(m.habits) == 0 {
 		m.confirmingDelete = false
 		return m
@@ -208,8 +142,7 @@ func deleteSelectedHabit(m model) model {
 	return m
 }
 
-// View
-func GetMainView(m model) string {
+func viewMain(m Model) string {
 	s := m.styles
 	var b strings.Builder
 	b.WriteString(m.renderTitle())
@@ -233,7 +166,7 @@ func GetMainView(m model) string {
 			habitColor := getHabitColor(h.Color)
 			scheduledToday := isScheduledOnDay(h.Frequency, getDayName(time.Now()))
 			completed := ""
-			if IsCompleted(m.completions, &h) {
+			if isCompleted(m.completions, h) {
 				completed = "✓"
 			} else if scheduledToday {
 				completionCount := todayCompletionCount(m.completions, h.ID)

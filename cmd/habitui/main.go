@@ -9,8 +9,12 @@ import (
 )
 
 func main() {
-	p := tea.NewProgram(view.InitViewState(), tea.WithAltScreen())
-	_, err := p.Run()
+	m := view.InitViewState()
+	p := tea.NewProgram(m, tea.WithAltScreen())
+	finalModel, err := p.Run()
+	if fm, ok := finalModel.(view.Model); ok {
+		_ = fm.Close()
+	}
 	if err != nil {
 		fmt.Printf("Error: %v", err)
 		os.Exit(1)

@@ -67,7 +67,7 @@ func TestDeleteHabitRemovesCompletions(t *testing.T) {
 		t.Fatalf("delete habit: %v", err)
 	}
 
-	completions, err := store.GetCompletionsByHabitId(ctx, habit.ID)
+	completions, err := store.GetCompletionsByHabitID(ctx, habit.ID)
 	if err != nil {
 		t.Fatalf("list completions: %v", err)
 	}
@@ -108,7 +108,7 @@ func TestGetCompletionsByDateHandlesLocalAndUTC(t *testing.T) {
 		t.Fatalf("expected 2 completions for local day, got %d", len(got))
 	}
 
-	byHabitDay, err := store.GetCompletionsByHabitIdAndDate(ctx, habit.ID, day)
+	byHabitDay, err := store.GetCompletionsByHabitIDAndDate(ctx, habit.ID, day)
 	if err != nil {
 		t.Fatalf("get by habit+date: %v", err)
 	}

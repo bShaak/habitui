@@ -6,12 +6,22 @@ import (
 	"strings"
 	"time"
 
-	types "github.com/bShaak/habitui/internal/models"
+	"github.com/bShaak/habitui/internal/models"
 	"github.com/bShaak/habitui/internal/storage"
 	"github.com/bShaak/habitui/internal/theme"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
+)
+
+type screen int
+
+const (
+	screenMain screen = iota
+	screenCalendar
+	screenStats
+	screenCreateHabit
+	screenEditHabit
 )
 
 var currentTheme theme.Theme
@@ -69,7 +79,7 @@ func applyThemeColors() {
 	pink = lipgloss.Color(t.Pink)
 }
 
-func GetHabitColor(colorName string) lipgloss.Color {
+func getHabitColor(colorName string) lipgloss.Color {
 	colorKey := colorName
 	if colorKey == "" {
 		colorKey = "purple"
@@ -105,13 +115,7 @@ type Styles struct {
 	Title lipgloss.Style
 }
 
-func getMonday(t time.Time) time.Time {
-	weekday := t.Weekday()
-	daysSinceMonday := (int(weekday) + 6) % 7
-	return startOfDay(t.AddDate(0, 0, -daysSinceMonday))
-}
-
-func NewStyles(lg *lipgloss.Renderer) *Styles {
+func newStyles(lg *lipgloss.Renderer) *Styles {
 	s := Styles{}
 	s.Base = lg.NewStyle().
 		Padding(1, 2, 0, 1)
@@ -145,20 +149,21 @@ func NewStyles(lg *lipgloss.Renderer) *Styles {
 	return &s
 }
 
-type model struct {
-	habits            []types.Habit
-	completions       []types.Completion
-	streakCompletions []types.Completion
-	statsCompletions  []types.Completion
-	store             *storage.SQLiteStore
+// Model is the Bubble Tea application state.
+type Model struct {
+	habits            []models.Habit
+	completions       []models.Completion
+	streakCompletions []models.Completion
+	statsCompletions  []models.Completion
+	store             storage.Store
 	form              *huh.Form
+	formFields        *habitFormFields
 	lg                *lipgloss.Renderer
 	styles            *Styles
-	getView           func(m model) string
-	getUpdate         func(m model, msg tea.Msg) (tea.Model, tea.Cmd)
+	screen            screen
 	cursor            int
 	weekStart         time.Time
-	weekCompletions   []types.Completion
+	weekCompletions   []models.Completion
 	calendarCol       int
 	scrollOffset      int
 	statsTab          int
@@ -168,20 +173,29 @@ type model struct {
 	statusMsg         string
 }
 
-func (m model) appBoundaryView(text string) string {
+func (m Model) appBoundaryView(title string) string {
 	return lipgloss.PlaceHorizontal(
 		0,
 		lipgloss.Left,
-		m.styles.HeaderText.Render(text),
+		m.styles.HeaderText.Render(title),
 		lipgloss.WithWhitespaceForeground(lavender),
 	)
 }
 
-func (m model) renderTitle() string {
+func (m Model) renderTitle() string {
 	return m.styles.Title.Render("Habitui")
 }
 
-func InitViewState() model {
+// Close releases resources held by the model.
+func (m Model) Close() error {
+	if m.store == nil {
+		return nil
+	}
+	return m.store.Close()
+}
+
+// InitViewState opens storage and builds the initial UI model.
+func InitViewState() Model {
 	initTheme()
 	store, err := storage.OpenSQLite()
 	if err != nil {
@@ -213,16 +227,14 @@ func InitViewState() model {
 
 	lg := lipgloss.DefaultRenderer()
 
-	return model{
+	return Model{
 		habits:            habits,
 		completions:       completions,
 		streakCompletions: streakCompletions,
-		form:              nil,
 		store:             store,
 		lg:                lg,
-		styles:            NewStyles(lg),
-		getView:           GetMainView,
-		getUpdate:         GetMainUpdate,
+		styles:            newStyles(lg),
+		screen:            screenMain,
 		cursor:            0,
 		weekStart:         weekStart,
 		weekCompletions:   weekCompletions,
@@ -232,18 +244,16 @@ func InitViewState() model {
 
 const streakLookbackYears = 5
 
-func loadStreakCompletions(store *storage.SQLiteStore, now time.Time) ([]types.Completion, error) {
+func loadStreakCompletions(store storage.Store, now time.Time) ([]models.Completion, error) {
 	streakStart := startOfDay(now.AddDate(-streakLookbackYears, 0, 0))
 	return store.GetCompletionsByDateRange(context.Background(), streakStart, now)
 }
 
-// Init
-func (m model) Init() tea.Cmd {
+func (m Model) Init() tea.Cmd {
 	return nil
 }
 
-// Update
-func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
@@ -254,11 +264,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Don't forward to huh — it pads all groups to the tallest page height.
 			return m, nil
 		}
-		return m.getUpdate(m, msg)
+		return m.updateScreen(msg)
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c":
-			defer m.store.Close()
 			return m, tea.Quit
 		case "esc":
 			if m.confirmingDelete {
@@ -272,10 +281,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.completions = completions
 			m = refreshStreakCompletions(m)
 			m.form = nil
+			m.formFields = nil
 			m.confirmingDelete = false
 			m.scrollOffset = 0
-			m.getView = GetMainView
-			m.getUpdate = GetMainUpdate
+			m.screen = screenMain
 			return m, nil
 		case "pgup", "ctrl+u":
 			if m.form == nil {
@@ -289,12 +298,26 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 	}
-	return m.getUpdate(m, msg)
+	return m.updateScreen(msg)
 }
 
-// View
-func (m model) View() string {
-	content := m.getView(m)
+func (m Model) updateScreen(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch m.screen {
+	case screenCalendar:
+		return updateCalendar(m, msg)
+	case screenStats:
+		return updateStats(m, msg)
+	case screenCreateHabit:
+		return updateCreateHabit(m, msg)
+	case screenEditHabit:
+		return updateEditHabit(m, msg)
+	default:
+		return updateMain(m, msg)
+	}
+}
+
+func (m Model) View() string {
+	content := m.screenContent()
 	// Forms manage their own height/scrolling via huh; don't double-clip them.
 	if m.form != nil {
 		return content
@@ -302,18 +325,33 @@ func (m model) View() string {
 	return applyViewport(content, m.height, m.scrollOffset)
 }
 
-func pageScrollAmount(m model) int {
+func (m Model) screenContent() string {
+	switch m.screen {
+	case screenCalendar:
+		return viewCalendar(m)
+	case screenStats:
+		return viewStats(m)
+	case screenCreateHabit:
+		return viewCreateHabit(m)
+	case screenEditHabit:
+		return viewEditHabit(m)
+	default:
+		return viewMain(m)
+	}
+}
+
+func pageScrollAmount(m Model) int {
 	if m.height <= 2 {
 		return 1
 	}
 	return m.height / 2
 }
 
-func maxScroll(m model) int {
+func maxScroll(m Model) int {
 	if m.height <= 0 {
 		return 0
 	}
-	lines := strings.Split(m.getView(m), "\n")
+	lines := strings.Split(m.screenContent(), "\n")
 	if len(lines) <= m.height {
 		return 0
 	}
@@ -349,12 +387,19 @@ func applyViewport(content string, height, offset int) string {
 	return strings.Join(visible, "\n")
 }
 
-func refreshStreakCompletions(m model) model {
+func refreshStreakCompletions(m Model) Model {
 	completions, err := loadStreakCompletions(m.store, time.Now())
 	if err != nil {
 		log.Printf("Error fetching streak completions: %s", err)
 		return m
 	}
 	m.streakCompletions = completions
+	return m
+}
+
+func returnToMain(m Model) Model {
+	m.form = nil
+	m.formFields = nil
+	m.screen = screenMain
 	return m
 }

@@ -5,7 +5,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	types "github.com/bShaak/habitui/internal/models"
+	"github.com/bShaak/habitui/internal/models"
 )
 
 func TestNormalizeFrequency(t *testing.T) {
@@ -72,24 +72,24 @@ func TestTruncateRunes(t *testing.T) {
 	name := "❤️ Super Long Habit Name Here"
 	got := truncateRunes(name, 10)
 	if !utf8.ValidString(got) {
-		t.Fatalf("truncated produced invalid UTF-8: %q", got)
+		t.Fatalf("truncate produced invalid UTF-8: %q", got)
 	}
 	if utf8.RuneCountInString(got) > 10 {
-		t.Fatalf("truncated too long: %q (%d runes)", got, utf8.RuneCountInString(got))
+		t.Fatalf("truncate too long: %q (%d runes)", got, utf8.RuneCountInString(got))
 	}
 }
 
 func TestGetHabitStreak(t *testing.T) {
 	loc := time.Local
 	today := time.Date(2026, 7, 10, 12, 0, 0, 0, loc)
-	habit := types.Habit{
+	habit := models.Habit{
 		ID:        1,
 		Frequency: "daily",
 		Goal:      1,
 		StartDate: time.Date(2026, 7, 1, 0, 0, 0, 0, loc).Format(time.RFC3339),
 	}
 
-	completions := []types.Completion{
+	completions := []models.Completion{
 		{HabitID: 1, CompletedAt: time.Date(2026, 7, 8, 9, 0, 0, 0, loc).Format(time.RFC3339)},
 		{HabitID: 1, CompletedAt: time.Date(2026, 7, 9, 9, 0, 0, 0, loc).Format(time.RFC3339)},
 		// today incomplete — current streak should still be 2
@@ -108,13 +108,13 @@ func TestGetHabitStreakCountsOffScheduleCompletion(t *testing.T) {
 	loc := time.Local
 	// Friday — Code habit is not scheduled on Fridays.
 	today := time.Date(2026, 7, 10, 12, 0, 0, 0, loc)
-	habit := types.Habit{
+	habit := models.Habit{
 		ID:        1,
 		Frequency: "monday,tuesday,wednesday,thursday,sunday",
 		Goal:      1,
 		StartDate: time.Date(2026, 7, 1, 0, 0, 0, 0, loc).Format(time.RFC3339),
 	}
-	completions := []types.Completion{
+	completions := []models.Completion{
 		{HabitID: 1, CompletedAt: time.Date(2026, 7, 10, 12, 51, 0, 0, loc).Format(time.RFC3339)},
 	}
 
@@ -126,7 +126,7 @@ func TestGetHabitStreakCountsOffScheduleCompletion(t *testing.T) {
 		t.Fatalf("longest streak = %d, want 1", longest)
 	}
 
-	period := StatsPeriod{
+	period := statsPeriod{
 		Name:      "Last 7 Days",
 		StartDate: startOfDay(today).AddDate(0, 0, -6),
 		EndDate:   endOfDay(today),
@@ -141,13 +141,13 @@ func TestGetHabitStreakSkipsUnscheduledDays(t *testing.T) {
 	loc := time.Local
 	// Friday Jul 10, 2026
 	today := time.Date(2026, 7, 10, 12, 0, 0, 0, loc)
-	habit := types.Habit{
+	habit := models.Habit{
 		ID:        1,
 		Frequency: "monday,wednesday,friday",
 		Goal:      1,
 		StartDate: time.Date(2026, 7, 1, 0, 0, 0, 0, loc).Format(time.RFC3339),
 	}
-	completions := []types.Completion{
+	completions := []models.Completion{
 		{HabitID: 1, CompletedAt: time.Date(2026, 7, 6, 9, 0, 0, 0, loc).Format(time.RFC3339)},  // Mon
 		{HabitID: 1, CompletedAt: time.Date(2026, 7, 8, 9, 0, 0, 0, loc).Format(time.RFC3339)},  // Wed
 		{HabitID: 1, CompletedAt: time.Date(2026, 7, 10, 9, 0, 0, 0, loc).Format(time.RFC3339)}, // Fri

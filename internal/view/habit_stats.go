@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"time"
 
-	types "github.com/bShaak/habitui/internal/models"
+	"github.com/bShaak/habitui/internal/models"
 )
 
-type HabitStats struct {
-	Habit            types.Habit
+type habitStats struct {
+	Habit            models.Habit
 	TotalCompletions int
 	GoalDaysMet      int
 	ScheduledDays    int
@@ -17,33 +17,25 @@ type HabitStats struct {
 	LongestStreak    int
 }
 
-type StatsPeriod struct {
+type statsPeriod struct {
 	Name      string
 	StartDate time.Time
 	EndDate   time.Time
 }
 
-func startOfDay(t time.Time) time.Time {
-	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
-}
-
-func endOfDay(t time.Time) time.Time {
-	return time.Date(t.Year(), t.Month(), t.Day(), 23, 59, 59, 999999999, t.Location())
-}
-
-func getStatsPeriods() []StatsPeriod {
+func getStatsPeriods() []statsPeriod {
 	now := time.Now()
 	todayStart := startOfDay(now)
 	todayEnd := endOfDay(now)
 
-	return []StatsPeriod{
+	return []statsPeriod{
 		{Name: "Last 7 Days", StartDate: todayStart.AddDate(0, 0, -6), EndDate: todayEnd},
 		{Name: "Last 30 Days", StartDate: todayStart.AddDate(0, 0, -29), EndDate: todayEnd},
 		{Name: "Last Year", StartDate: todayStart.AddDate(0, 0, -364), EndDate: todayEnd},
 	}
 }
 
-func countScheduledDaysInRange(habit types.Habit, startDate, endDate time.Time) int {
+func countScheduledDaysInRange(habit models.Habit, startDate, endDate time.Time) int {
 	count := 0
 	current := startOfDay(startDate)
 	end := startOfDay(endDate)
@@ -56,7 +48,7 @@ func countScheduledDaysInRange(habit types.Habit, startDate, endDate time.Time) 
 	return count
 }
 
-func completionsByDay(completions []types.Completion, habitID int64) map[string]int {
+func completionsByDay(completions []models.Completion, habitID int64) map[string]int {
 	byDay := make(map[string]int)
 	for _, c := range completions {
 		if c.HabitID != habitID {
@@ -73,7 +65,7 @@ func completionsByDay(completions []types.Completion, habitID int64) map[string]
 	return byDay
 }
 
-func getCompletionsForHabitInRange(completions []types.Completion, habitID int64, startDate, endDate time.Time) int {
+func getCompletionsForHabitInRange(completions []models.Completion, habitID int64, startDate, endDate time.Time) int {
 	count := 0
 	start := startOfDay(startDate)
 	end := endOfDay(endDate)
@@ -93,7 +85,7 @@ func getCompletionsForHabitInRange(completions []types.Completion, habitID int64
 	return count
 }
 
-func countGoalDaysMetInRange(habit types.Habit, completions []types.Completion, startDate, endDate time.Time) int {
+func countGoalDaysMetInRange(habit models.Habit, completions []models.Completion, startDate, endDate time.Time) int {
 	byDay := completionsByDay(completions, habit.ID)
 	goal := effectiveGoal(habit.Goal)
 	met := 0
@@ -101,12 +93,10 @@ func countGoalDaysMetInRange(habit types.Habit, completions []types.Completion, 
 	end := startOfDay(endDate)
 	for !current.After(end) {
 		dayKey := current.Format("2006-01-02")
-		if byDay[dayKey] < goal {
-			current = current.AddDate(0, 0, 1)
-			continue
+		if byDay[dayKey] >= goal {
+			// Count any day the goal was met, including off-schedule check-ins.
+			met++
 		}
-		// Count any day the goal was met, including off-schedule check-ins.
-		met++
 		current = current.AddDate(0, 0, 1)
 	}
 	return met
@@ -116,7 +106,7 @@ func countGoalDaysMetInRange(habit types.Habit, completions []types.Completion, 
 // A day counts when completions that day >= goal.
 // Unscheduled days with no completions neither count nor break the streak.
 // Unscheduled days that were completed do count (so off-day check-ins aren't ignored).
-func getHabitStreak(habit types.Habit, completions []types.Completion, today time.Time) (int, int) {
+func getHabitStreak(habit models.Habit, completions []models.Completion, today time.Time) (int, int) {
 	byDay := completionsByDay(completions, habit.ID)
 	goal := effectiveGoal(habit.Goal)
 
@@ -184,7 +174,7 @@ func getHabitStreak(habit types.Habit, completions []types.Completion, today tim
 	return currentStreak, longestStreak
 }
 
-func calculateStatsForHabit(habit types.Habit, completions []types.Completion, period StatsPeriod) HabitStats {
+func calculateStatsForHabit(habit models.Habit, completions []models.Completion, period statsPeriod) habitStats {
 	scheduledDays := countScheduledDaysInRange(habit, period.StartDate, period.EndDate)
 	goalDaysMet := countGoalDaysMetInRange(habit, completions, period.StartDate, period.EndDate)
 	totalCompletions := getCompletionsForHabitInRange(completions, habit.ID, period.StartDate, period.EndDate)
@@ -199,7 +189,7 @@ func calculateStatsForHabit(habit types.Habit, completions []types.Completion, p
 
 	currentStreak, longestStreak := getHabitStreak(habit, completions, time.Now())
 
-	return HabitStats{
+	return habitStats{
 		Habit:            habit,
 		TotalCompletions: totalCompletions,
 		GoalDaysMet:      goalDaysMet,
@@ -210,9 +200,6 @@ func calculateStatsForHabit(habit types.Habit, completions []types.Completion, p
 	}
 }
 
-func formatHabitLabel(habit types.Habit) string {
-	if habit.Icon != "" {
-		return fmt.Sprintf("%s %s", habit.Icon, habit.Name)
-	}
-	return habit.Name
+func formatRate(rate float64) string {
+	return fmt.Sprintf("%.0f%%", rate)
 }
