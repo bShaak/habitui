@@ -113,15 +113,11 @@ func GetCalendarUpdate(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			selectedHabit := m.habits[m.cursor]
 			selectedDate := m.weekStart.AddDate(0, 0, m.calendarCol)
-			dayName := getDayName(selectedDate)
-
-			if !isScheduledOnDay(selectedHabit.Frequency, dayName) {
-				return m, nil
-			}
 
 			completionCount := getCompletionsForHabitAndDate(m.weekCompletions, selectedHabit.ID, selectedDate)
+			goal := effectiveGoal(selectedHabit.Goal)
 
-			if completionCount >= selectedHabit.Goal {
+			if completionCount >= goal {
 				completions, err := m.store.GetCompletionsByHabitId(context.Background(), selectedHabit.ID)
 				if err != nil {
 					log.Printf("Error retrieving completions: %s", err)
@@ -248,8 +244,8 @@ func GetCalendarView(m model) string {
 				var cellStyle lipgloss.Style
 
 				isScheduled := isScheduledOnDay(habit.Frequency, dayName)
-				isComplete := completionCount >= habit.Goal
-				isPartial := completionCount > 0 && completionCount < habit.Goal
+				isComplete := completionCount >= effectiveGoal(habit.Goal)
+				isPartial := completionCount > 0 && completionCount < effectiveGoal(habit.Goal)
 				_, frequencyHasSpecificDays := frequencyDays[getDayName(date)]
 				hasSpecificDays := len(frequencyDays) > 0 && frequencyHasSpecificDays
 

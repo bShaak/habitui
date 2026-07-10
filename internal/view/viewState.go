@@ -108,7 +108,7 @@ type Styles struct {
 func getMonday(t time.Time) time.Time {
 	weekday := t.Weekday()
 	daysSinceMonday := (int(weekday) + 6) % 7
-	return t.AddDate(0, 0, -daysSinceMonday)
+	return startOfDay(t.AddDate(0, 0, -daysSinceMonday))
 }
 
 func NewStyles(lg *lipgloss.Renderer) *Styles {
@@ -149,6 +149,7 @@ type model struct {
 	habits            []types.Habit
 	completions       []types.Completion
 	streakCompletions []types.Completion
+	statsCompletions  []types.Completion
 	store             *storage.SQLiteStore
 	form              *huh.Form
 	lg                *lipgloss.Renderer
@@ -164,6 +165,7 @@ type model struct {
 	width             int
 	height            int
 	confirmingDelete  bool
+	statusMsg         string
 }
 
 func (m model) appBoundaryView(text string) string {
@@ -184,7 +186,6 @@ func InitViewState() model {
 	store, err := storage.OpenSQLite()
 	if err != nil {
 		log.Fatalf("Error opening database: %s", err)
-		defer store.Close()
 	}
 
 	habits, err := store.ListHabits(context.Background())
@@ -205,8 +206,7 @@ func InitViewState() model {
 		log.Fatalf("Error fetching week completions: %s", err)
 	}
 
-	streakStart := startOfDay(now.AddDate(-2, 0, 0))
-	streakCompletions, err := store.GetCompletionsByDateRange(context.Background(), streakStart, now)
+	streakCompletions, err := loadStreakCompletions(store, now)
 	if err != nil {
 		log.Fatalf("Error fetching streak completions: %s", err)
 	}
@@ -228,6 +228,13 @@ func InitViewState() model {
 		weekCompletions:   weekCompletions,
 		calendarCol:       0,
 	}
+}
+
+const streakLookbackYears = 5
+
+func loadStreakCompletions(store *storage.SQLiteStore, now time.Time) ([]types.Completion, error) {
+	streakStart := startOfDay(now.AddDate(-streakLookbackYears, 0, 0))
+	return store.GetCompletionsByDateRange(context.Background(), streakStart, now)
 }
 
 // Init
@@ -343,9 +350,7 @@ func applyViewport(content string, height, offset int) string {
 }
 
 func refreshStreakCompletions(m model) model {
-	now := time.Now()
-	streakStart := startOfDay(now.AddDate(-2, 0, 0))
-	completions, err := m.store.GetCompletionsByDateRange(context.Background(), streakStart, now)
+	completions, err := loadStreakCompletions(m.store, time.Now())
 	if err != nil {
 		log.Printf("Error fetching streak completions: %s", err)
 		return m

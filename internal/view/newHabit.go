@@ -39,6 +39,19 @@ func CreateHabit() *huh.Form {
 	return habitForm(&Name, &GoalString, &Description, &Color, &Icon, &Frequency, &Confirm, "Create Habit?")
 }
 
+func returnToMain(m model) model {
+	m.form = nil
+	m.getView = GetMainView
+	m.getUpdate = GetMainUpdate
+	return m
+}
+
+func formFrequency(form *huh.Form) string {
+	raw := form.Get("frequency")
+	days, _ := raw.([]string)
+	return normalizeFrequency(days)
+}
+
 func GetCreateHabitUpdate(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
 	// huh expands every group to the tallest group's height on WindowSizeMsg;
 	// handle width ourselves and skip forwarding so the box stays content-sized.
@@ -55,25 +68,20 @@ func GetCreateHabitUpdate(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 	if m.form.State == huh.StateCompleted {
 		if !Confirm {
-			m.form = nil
-			m.getView = GetMainView
-			m.getUpdate = GetMainUpdate
-			return m, nil
+			return returnToMain(m), nil
 		}
 		name := strings.TrimSpace(m.form.GetString("name"))
 		if name == "" {
 			name = "Unnamed Habit"
 		}
 		description := m.form.GetString("description")
-		freq := m.form.Get("frequency").([]string)
-		frequency := strings.Join(freq, ",")
-		if frequency == "" {
-			frequency = "Daily"
-		}
+		frequency := formFrequency(m.form)
 		goal := m.form.GetString("goal")
 		goalInt, err := strconv.Atoi(goal)
-		if err != nil {
-			log.Fatalf("Error converting goal to int: %s", err)
+		if err != nil || goalInt < 1 {
+			log.Printf("Error converting goal to int: %v", err)
+			m.statusMsg = "Could not create habit: goal must be a number ≥ 1"
+			return returnToMain(m), nil
 		}
 		color := m.form.GetString("color")
 		if color == "" {
@@ -92,13 +100,13 @@ func GetCreateHabitUpdate(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		h, err := m.store.CreateHabit(context.Background(), &habit)
 		if err != nil {
-			log.Fatalf("Error creating habit: %s", err)
+			log.Printf("Error creating habit: %s", err)
+			m.statusMsg = "Could not create habit"
+			return returnToMain(m), nil
 		}
 		m.habits = append(m.habits, *h)
-
-		m.form = nil
-		m.getView = GetMainView
-		m.getUpdate = GetMainUpdate
+		m.statusMsg = ""
+		return returnToMain(m), nil
 	}
 
 	return m, tea.Batch(cmds...)

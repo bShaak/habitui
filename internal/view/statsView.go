@@ -1,9 +1,7 @@
 package view
 
 import (
-	"context"
 	"fmt"
-	"log"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -41,11 +39,7 @@ func GetStatsView(m model) string {
 	b.WriteString("\n\n")
 
 	periods := getStatsPeriods()
-
-	allCompletions, err := m.store.GetCompletionsByDateRange(context.Background(), periods[2].StartDate, periods[0].EndDate)
-	if err != nil {
-		log.Printf("Error fetching all completions for stats: %s", err)
-	}
+	allCompletions := m.statsCompletions
 
 	tabNames := []string{"Last 7 Days", "Last 30 Days", "Last Year"}
 	tabStyle := lipgloss.NewStyle().Foreground(text).Padding(0, 1)
@@ -95,10 +89,7 @@ func GetStatsView(m model) string {
 			habitColor := getHabitColor(habit.Color)
 			habitNameStyle := lipgloss.NewStyle().Foreground(habitColor)
 
-			habitName := formatHabitLabel(habit)
-			if len(habitName) > 20 {
-				habitName = habitName[:18] + "…"
-			}
+			habitName := truncateRunes(formatHabitLabel(habit), 20)
 
 			content.WriteString(habitNameStyle.Render(habitName))
 			content.WriteString("\n")

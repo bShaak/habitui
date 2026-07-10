@@ -12,27 +12,19 @@ import (
 )
 
 func EditHabit(habit types.Habit) *huh.Form {
-	goalString := strconv.Itoa(habit.Goal)
-	frequency := strings.Split(habit.Frequency, ",")
+	goalString := strconv.Itoa(effectiveGoal(habit.Goal))
 	color := habit.Color
 	if color == "" {
 		color = "purple"
 	}
-	icon := habit.Icon
-	name := habit.Name
-	description := habit.Description
-
-	for i, f := range frequency {
-		frequency[i] = strings.TrimSpace(f)
-	}
 
 	// Bind to package-level vars so values survive across form pages.
-	Name = name
+	Name = habit.Name
 	GoalString = goalString
-	Description = description
-	Frequency = frequency
+	Description = habit.Description
+	Frequency = frequencyDaysForForm(habit.Frequency)
 	Color = color
-	Icon = icon
+	Icon = habit.Icon
 	Confirm = false
 
 	return habitForm(&Name, &GoalString, &Description, &Color, &Icon, &Frequency, &Confirm, "Update Habit?")
@@ -46,6 +38,10 @@ func GetEditHabitUpdate(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
+	if len(m.habits) == 0 || m.cursor < 0 || m.cursor >= len(m.habits) {
+		return returnToMain(m), nil
+	}
+
 	habit := m.habits[m.cursor]
 	var cmds []tea.Cmd
 	form, cmd := m.form.Update(msg)
@@ -55,25 +51,20 @@ func GetEditHabitUpdate(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 	if m.form.State == huh.StateCompleted {
 		if !Confirm {
-			m.form = nil
-			m.getView = GetMainView
-			m.getUpdate = GetMainUpdate
-			return m, nil
+			return returnToMain(m), nil
 		}
 		name := strings.TrimSpace(m.form.GetString("name"))
 		if name == "" {
 			name = "Unnamed Habit"
 		}
 		description := m.form.GetString("description")
-		freq := m.form.Get("frequency").([]string)
-		frequency := strings.Join(freq, ",")
-		if frequency == "" {
-			frequency = "monday,tuesday,wednesday,thursday,friday,saturday,sunday"
-		}
+		frequency := formFrequency(m.form)
 		goal := m.form.GetString("goal")
 		goalInt, err := strconv.Atoi(goal)
-		if err != nil {
-			log.Fatalf("Error converting goal to int: %s", err)
+		if err != nil || goalInt < 1 {
+			log.Printf("Error converting goal to int: %v", err)
+			m.statusMsg = "Could not update habit: goal must be a number ≥ 1"
+			return returnToMain(m), nil
 		}
 		color := m.form.GetString("color")
 		if color == "" {
@@ -88,7 +79,9 @@ func GetEditHabitUpdate(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
 		habit.Icon = icon
 		err = m.store.UpdateHabit(context.Background(), &habit)
 		if err != nil {
-			log.Fatalf("Error updating habit: %s", err)
+			log.Printf("Error updating habit: %s", err)
+			m.statusMsg = "Could not update habit"
+			return returnToMain(m), nil
 		}
 		for i, h := range m.habits {
 			if h.ID == habit.ID {
@@ -96,10 +89,8 @@ func GetEditHabitUpdate(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
 				break
 			}
 		}
-
-		m.form = nil
-		m.getView = GetMainView
-		m.getUpdate = GetMainUpdate
+		m.statusMsg = ""
+		return returnToMain(m), nil
 	}
 
 	return m, tea.Batch(cmds...)

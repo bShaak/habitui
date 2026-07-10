@@ -7,7 +7,7 @@ Habitui is a terminal-based utility that helps you track and manage your habits.
 Requires Go 1.23+.
 
 ```
-go install github.com/bShaak/habitui@latest
+go install github.com/bShaak/habitui/cmd/habitui@latest
 ```
 
 All data is stored in `~/.habitui/`.

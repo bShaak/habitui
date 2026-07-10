@@ -19,11 +19,7 @@ func IsCompleted(completions []types.Completion, h *types.Habit) bool {
 			completionCount++
 		}
 	}
-	goal := h.Goal
-	if goal < 1 {
-		goal = 1
-	}
-	return completionCount >= goal
+	return completionCount >= effectiveGoal(h.Goal)
 }
 
 func todayCompletionCount(completions []types.Completion, habitID int64) int {
@@ -61,6 +57,7 @@ func GetMainUpdate(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
 			defer m.store.Close()
 			return m, tea.Quit
 		case "a":
+			m.statusMsg = ""
 			m.form = CreateHabit()
 			applyFormSize(m.form, m.width, m.height)
 			m.scrollOffset = 0
@@ -68,6 +65,7 @@ func GetMainUpdate(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.getUpdate = GetCreateHabitUpdate
 			return m, m.form.Init()
 		case "c":
+			m.statusMsg = ""
 			habits, err := m.store.ListHabits(context.Background())
 			if err != nil {
 				log.Printf("Error fetching habits: %s", err)
@@ -88,6 +86,7 @@ func GetMainUpdate(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.getUpdate = GetCalendarUpdate
 			return m, nil
 		case "s":
+			m.statusMsg = ""
 			habits, err := m.store.ListHabits(context.Background())
 			if err != nil {
 				log.Printf("Error fetching habits: %s", err)
@@ -96,12 +95,18 @@ func GetMainUpdate(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.cursor >= len(m.habits) {
 				m.cursor = 0
 			}
+			statsCompletions, err := m.store.ListCompletions(context.Background())
+			if err != nil {
+				log.Printf("Error fetching completions for stats: %s", err)
+			}
+			m.statsCompletions = statsCompletions
 			m.statsTab = 0
 			m.scrollOffset = 0
 			m.getView = GetStatsView
 			m.getUpdate = GetStatsUpdate
 			return m, nil
 		case "e":
+			m.statusMsg = ""
 			if len(m.habits) == 0 {
 				return m, nil
 			}
@@ -127,15 +132,17 @@ func GetMainUpdate(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
 			if len(m.habits) == 0 {
 				return m, nil
 			}
-			if !IsCompleted(m.completions, &m.habits[m.cursor]) {
-				c, err := m.store.CreateCompletion(context.Background(), &types.Completion{HabitID: m.habits[m.cursor].ID, CompletedAt: time.Now().Format(time.RFC3339)})
+			selected := m.habits[m.cursor]
+			m.statusMsg = ""
+			if !IsCompleted(m.completions, &selected) {
+				c, err := m.store.CreateCompletion(context.Background(), &types.Completion{HabitID: selected.ID, CompletedAt: time.Now().Format(time.RFC3339)})
 				if err != nil {
 					log.Printf("Error creating completion: %s", err)
 					return m, nil
 				}
 				m.completions = append(m.completions, *c)
 			} else {
-				completions, err := m.store.GetCompletionsByHabitId(context.Background(), m.habits[m.cursor].ID)
+				completions, err := m.store.GetCompletionsByHabitId(context.Background(), selected.ID)
 				if err != nil {
 					log.Printf("Error retrieving completions: %s", err)
 					return m, nil
@@ -164,7 +171,7 @@ func GetMainUpdate(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
 						updated = append(updated, c)
 						continue
 					}
-					if !(c.HabitID == m.habits[m.cursor].ID &&
+					if !(c.HabitID == selected.ID &&
 						(completedAt.Equal(dayStart) || completedAt.After(dayStart)) &&
 						(completedAt.Equal(dayEnd) || completedAt.Before(dayEnd))) {
 						updated = append(updated, c)
@@ -213,6 +220,10 @@ func GetMainView(m model) string {
 	var content strings.Builder
 	if len(m.habits) == 0 {
 		content.WriteString(s.Help.Render("No habits created yet.\n\nPress 'a' to create a new one."))
+		if m.statusMsg != "" {
+			content.WriteString("\n\n")
+			content.WriteString(lipgloss.NewStyle().Foreground(red).Render(m.statusMsg))
+		}
 	} else {
 		for i, h := range m.habits {
 			cursor := " "
@@ -220,12 +231,13 @@ func GetMainView(m model) string {
 				cursor = ">"
 			}
 			habitColor := getHabitColor(h.Color)
+			scheduledToday := isScheduledOnDay(h.Frequency, getDayName(time.Now()))
 			completed := ""
 			if IsCompleted(m.completions, &h) {
 				completed = "✓"
-			} else {
+			} else if scheduledToday {
 				completionCount := todayCompletionCount(m.completions, h.ID)
-				completed = fmt.Sprintf("✗ (%d/%d)", completionCount, h.Goal)
+				completed = fmt.Sprintf("✗ (%d/%d)", completionCount, effectiveGoal(h.Goal))
 			}
 			name := formatHabitLabel(h)
 			if name == "" || strings.TrimSpace(h.Name) == "" {
@@ -257,6 +269,10 @@ func GetMainView(m model) string {
 			)
 			content.WriteString(confirm)
 		} else {
+			if m.statusMsg != "" {
+				content.WriteString(lipgloss.NewStyle().Foreground(red).Render(m.statusMsg))
+				content.WriteString("\n")
+			}
 			help := s.Help.Render("a: Add  |  c: Calendar  |  s: Stats  |  e: Edit  |  x: Delete  |  enter: Toggle  |  q: Quit")
 			content.WriteString(help)
 		}

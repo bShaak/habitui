@@ -66,7 +66,9 @@ func completionsByDay(completions []types.Completion, habitID int64) map[string]
 		if err != nil {
 			continue
 		}
-		byDay[startOfDay(completedAt).Format("2006-01-02")]++
+		// Normalize to local calendar day so keys match startOfDay(time.Now()).
+		localDay := startOfDay(completedAt.In(time.Local)).Format("2006-01-02")
+		byDay[localDay]++
 	}
 	return byDay
 }
@@ -93,74 +95,83 @@ func getCompletionsForHabitInRange(completions []types.Completion, habitID int64
 
 func countGoalDaysMetInRange(habit types.Habit, completions []types.Completion, startDate, endDate time.Time) int {
 	byDay := completionsByDay(completions, habit.ID)
-	goal := habit.Goal
-	if goal < 1 {
-		goal = 1
-	}
+	goal := effectiveGoal(habit.Goal)
 	met := 0
 	current := startOfDay(startDate)
 	end := startOfDay(endDate)
 	for !current.After(end) {
-		if isScheduledOnDay(habit.Frequency, getDayName(current)) {
-			if byDay[current.Format("2006-01-02")] >= goal {
-				met++
-			}
+		dayKey := current.Format("2006-01-02")
+		if byDay[dayKey] < goal {
+			current = current.AddDate(0, 0, 1)
+			continue
 		}
+		// Count any day the goal was met, including off-schedule check-ins.
+		met++
 		current = current.AddDate(0, 0, 1)
 	}
 	return met
 }
 
 // getHabitStreak returns current and longest streaks.
-// A scheduled day counts only when completions that day >= goal.
-// Unscheduled days neither count nor break the streak.
+// A day counts when completions that day >= goal.
+// Unscheduled days with no completions neither count nor break the streak.
+// Unscheduled days that were completed do count (so off-day check-ins aren't ignored).
 func getHabitStreak(habit types.Habit, completions []types.Completion, today time.Time) (int, int) {
 	byDay := completionsByDay(completions, habit.ID)
-	goal := habit.Goal
-	if goal < 1 {
-		goal = 1
-	}
+	goal := effectiveGoal(habit.Goal)
 
 	dayMet := func(d time.Time) bool {
-		return byDay[startOfDay(d).Format("2006-01-02")] >= goal
+		return byDay[startOfDay(d).In(time.Local).Format("2006-01-02")] >= goal
 	}
 
 	// Current streak: walk backward from today.
 	currentStreak := 0
 	checkDate := startOfDay(today)
-	for i := 0; i < 365*5; i++ {
+	graceForToday := true
+	maxLookbackDays := 365 * streakLookbackYears
+	for i := 0; i < maxLookbackDays; i++ {
 		scheduled := isScheduledOnDay(habit.Frequency, getDayName(checkDate))
-		if !scheduled {
+		met := dayMet(checkDate)
+
+		if !scheduled && !met {
 			checkDate = checkDate.AddDate(0, 0, -1)
 			continue
 		}
-		if dayMet(checkDate) {
+		if met {
 			currentStreak++
+			graceForToday = false
 			checkDate = checkDate.AddDate(0, 0, -1)
 			continue
 		}
-		// Today incomplete: streak can still continue from yesterday.
-		if i == 0 {
+		// Scheduled (or otherwise relevant) day missed.
+		// Allow one grace skip so an incomplete today doesn't zero the streak.
+		if graceForToday {
+			graceForToday = false
 			checkDate = checkDate.AddDate(0, 0, -1)
 			continue
 		}
 		break
 	}
 
-	// Longest streak: scan from habit start (or 2 years back) through today.
-	start := startOfDay(today).AddDate(-2, 0, 0)
+	// Longest streak: scan from habit start (or lookback window) through today.
+	start := startOfDay(today).AddDate(-streakLookbackYears, 0, 0)
 	if habit.StartDate != "" {
 		if parsed, err := time.Parse(time.RFC3339, habit.StartDate); err == nil {
-			start = startOfDay(parsed)
+			parsedStart := startOfDay(parsed.In(time.Local))
+			if parsedStart.After(start) {
+				start = parsedStart
+			}
 		}
 	}
 	longestStreak := 0
 	tempStreak := 0
 	for d := start; !d.After(startOfDay(today)); d = d.AddDate(0, 0, 1) {
-		if !isScheduledOnDay(habit.Frequency, getDayName(d)) {
+		scheduled := isScheduledOnDay(habit.Frequency, getDayName(d))
+		met := dayMet(d)
+		if !scheduled && !met {
 			continue
 		}
-		if dayMet(d) {
+		if met {
 			tempStreak++
 			if tempStreak > longestStreak {
 				longestStreak = tempStreak
