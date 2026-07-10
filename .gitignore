@@ -1,4 +1,5 @@
 *.env
 .gocache
 .gomodcache
-/bin/*
+bin/*
+habit.db

@@ -24,8 +24,18 @@ var (
 	Confirm     bool
 )
 
-func CreateHabit() *huh.Form {
+func resetCreateHabitFields() {
+	Name = ""
+	Frequency = nil
+	GoalString = ""
+	StartDate = ""
+	Description = ""
 	Color = "purple"
+	Confirm = false
+}
+
+func CreateHabit() *huh.Form {
+	resetCreateHabitFields()
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewInput().

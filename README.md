@@ -12,6 +12,55 @@ go install github.com/bShaak/habitui@latest
 
 All data is stored in `~/.habitui/`.
 
+## Development
+
+### Prerequisites
+
+- Go 1.23+
+- A C compiler (required by the SQLite driver via CGO)
+
+On macOS, install Xcode Command Line Tools if needed:
+
+```
+xcode-select --install
+```
+
+On Linux, install `build-essential` (Debian/Ubuntu) or your distro's equivalent.
+
+### Clone and run
+
+```
+git clone https://github.com/bShaak/habitui.git
+cd habitui
+make run
+```
+
+Or run directly without the Makefile:
+
+```
+go run ./cmd/habitui
+```
+
+### Build
+
+```
+make build
+./bin/habitui
+```
+
+Other useful targets:
+
+| Command | Description |
+|---------|-------------|
+| `make run` | Run the app without building a binary |
+| `make build` | Build to `bin/habitui` |
+| `make install` | Install to `$GOPATH/bin` or `$GOBIN` |
+| `make clean` | Remove the `bin/` directory |
+
+### Data and config
+
+During development, habit data is still stored in `~/.habitui/habit.db`. To customize colors, place a `habitui.config` file in the project root (see [Configuration](#configuration) below).
+
 ## Features
 
 - **Simple Interface**: Easy-to-use terminal interface for quick habit tracking.
@@ -75,3 +124,5 @@ Create a `habitui.config` file to customize colors. Available color keys:
 - [ ] Habit data and stats for selected habit in daily view
 - [ ] monthly view
 - [x] make project simple to install, on linux and mac
+- [ ] Add an emoji icon picker to the habit creation and display emoji icon next to the habit in the main View
+- [ ] Add streak statistic displayed on main view.
