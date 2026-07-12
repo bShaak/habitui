@@ -1,12 +1,12 @@
 # Habitui
 
-Habitui is a terminal habit tracker. Add habits, check them off each day, browse a week calendar, and review streaks and stats — all from your terminal.
+Habitui is a terminal habit tracker. Add habits, check them off each day, and review streaks and stats.
 
 ## Features
 
 - Daily habit list with vim-style navigation
 - Per-habit schedule, color, icon, and times-per-day goal
-- Week calendar for reviewing and toggling past days
+- Weekly calendar for reviewing and toggling past days
 - Stats for the last 7 days, 30 days, and year
 - Streaks on the main view (shown at 3+ days)
 - Local SQLite storage under `~/.habitui/`
@@ -24,8 +24,6 @@ Make sure `$(go env GOPATH)/bin` is on your `PATH`, then run:
 ```bash
 habitui
 ```
-
-No C compiler is required — Habitui uses a pure-Go SQLite driver.
 
 ### From source
 
