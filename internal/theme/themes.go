@@ -2,7 +2,6 @@ package theme
 
 const DefaultThemeName = "catppuccin-mocha"
 
-// AllThemes is the ordered list shown when cycling themes.
 var AllThemes = []Theme{
 	CatppuccinMocha,
 	CatppuccinLatte,

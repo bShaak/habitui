@@ -173,3 +173,20 @@ func TestGetMondayNormalizesToMidnight(t *testing.T) {
 		t.Fatalf("expected midnight, got %v", monday)
 	}
 }
+
+func TestNeedsDayRefresh(t *testing.T) {
+	loc := time.Local
+	yesterday := time.Date(2026, 7, 14, 23, 0, 0, 0, loc)
+	todayMorning := time.Date(2026, 7, 15, 8, 30, 0, 0, loc)
+	todayEvening := time.Date(2026, 7, 15, 22, 0, 0, 0, loc)
+
+	if !needsDayRefresh(time.Time{}, todayMorning) {
+		t.Fatal("zero viewDay should need refresh")
+	}
+	if !needsDayRefresh(yesterday, todayMorning) {
+		t.Fatal("overnight rollover should need refresh")
+	}
+	if needsDayRefresh(todayMorning, todayEvening) {
+		t.Fatal("same calendar day should not need refresh")
+	}
+}

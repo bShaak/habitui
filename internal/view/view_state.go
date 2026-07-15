@@ -159,7 +159,6 @@ func newStyles(lg *lipgloss.Renderer) *Styles {
 	return &s
 }
 
-// Model is the Bubble Tea application state.
 type Model struct {
 	habits            []models.Habit
 	completions       []models.Completion
@@ -181,6 +180,7 @@ type Model struct {
 	height            int
 	confirmingDelete  bool
 	statusMsg         string
+	viewDay time.Time
 }
 
 func (m Model) appBoundaryView(title string) string {
@@ -196,7 +196,6 @@ func (m Model) renderTitle() string {
 	return m.styles.Title.Render("Habitui")
 }
 
-// Close releases resources held by the model.
 func (m Model) Close() error {
 	if m.store == nil {
 		return nil
@@ -204,7 +203,6 @@ func (m Model) Close() error {
 	return m.store.Close()
 }
 
-// InitViewState opens storage and builds the initial UI model.
 func InitViewState() Model {
 	initTheme()
 	store, err := storage.OpenSQLite()
@@ -249,10 +247,22 @@ func InitViewState() Model {
 		weekStart:         weekStart,
 		weekCompletions:   weekCompletions,
 		calendarCol:       0,
+		viewDay:           startOfDay(now),
 	}
 }
 
-const streakLookbackYears = 5
+const (
+	streakLookbackYears    = 5
+	dayRefreshTickInterval = 5 * time.Minute
+)
+
+type dayRefreshTickMsg time.Time
+
+func dayRefreshTick() tea.Cmd {
+	return tea.Tick(dayRefreshTickInterval, func(t time.Time) tea.Msg {
+		return dayRefreshTickMsg(t)
+	})
+}
 
 func loadStreakCompletions(store storage.Store, now time.Time) ([]models.Completion, error) {
 	streakStart := startOfDay(now.AddDate(-streakLookbackYears, 0, 0))
@@ -260,7 +270,7 @@ func loadStreakCompletions(store storage.Store, now time.Time) ([]models.Complet
 }
 
 func (m Model) Init() tea.Cmd {
-	return nil
+	return dayRefreshTick()
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -275,6 +285,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		return m.updateScreen(msg)
+	case tea.FocusMsg:
+		// Terminal regained focus (e.g. morning after overnight sleep).
+		return refreshIfDayChanged(m), nil
+	case dayRefreshTickMsg:
+		// Catch midnight rollover when the terminal stays focused and idle.
+		return refreshIfDayChanged(m), dayRefreshTick()
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c":
@@ -404,6 +420,45 @@ func refreshStreakCompletions(m Model) Model {
 		return m
 	}
 	m.streakCompletions = completions
+	return m
+}
+
+func needsDayRefresh(viewDay, now time.Time) bool {
+	if viewDay.IsZero() {
+		return true
+	}
+	return !startOfDay(viewDay).Equal(startOfDay(now))
+}
+
+func refreshIfDayChanged(m Model) Model {
+	now := time.Now()
+	if !needsDayRefresh(m.viewDay, now) {
+		return m
+	}
+	return refreshForDay(m, now)
+}
+
+func refreshForDay(m Model, now time.Time) Model {
+	completions, err := m.store.GetCompletionsByDate(context.Background(), now)
+	if err != nil {
+		log.Printf("Error fetching today's completions: %s", err)
+		// Leave viewDay unchanged so the next focus/tick retries.
+		return m
+	}
+	m.completions = completions
+
+	weekStart := getMonday(now)
+	weekEnd := weekStart.AddDate(0, 0, 6)
+	weekCompletions, err := m.store.GetCompletionsByDateRange(context.Background(), weekStart, weekEnd)
+	if err != nil {
+		log.Printf("Error fetching week completions: %s", err)
+	} else {
+		m.weekStart = weekStart
+		m.weekCompletions = weekCompletions
+	}
+
+	m = refreshStreakCompletions(m)
+	m.viewDay = startOfDay(now)
 	return m
 }
 

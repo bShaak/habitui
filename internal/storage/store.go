@@ -7,7 +7,6 @@ import (
 	"github.com/bShaak/habitui/internal/models"
 )
 
-// Store is the persistence API used by the UI.
 type Store interface {
 	CreateHabit(ctx context.Context, h *models.Habit) (*models.Habit, error)
 	UpdateHabit(ctx context.Context, h *models.Habit) error

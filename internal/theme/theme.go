@@ -7,7 +7,6 @@ import (
 	"strings"
 )
 
-// BaseColors holds semantic UI and habit palette slots shared across themes.
 type BaseColors struct {
 	Text       string `json:"text,omitempty"`
 	Subtext    string `json:"subtext,omitempty"`
@@ -172,7 +171,7 @@ func LookupTheme(name string) Theme {
 	return CatppuccinMocha
 }
 
-// NextThemeName returns the next theme id after current (wrapping).
+// NextThemeName returns the next theme id after current.
 func NextThemeName(current string) string {
 	current = normalizeThemeName(current)
 	if len(AllThemes) == 0 {

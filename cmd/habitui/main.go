@@ -10,7 +10,7 @@ import (
 
 func main() {
 	m := view.InitViewState()
-	p := tea.NewProgram(m, tea.WithAltScreen())
+	p := tea.NewProgram(m, tea.WithAltScreen(), tea.WithReportFocus())
 	finalModel, err := p.Run()
 	if fm, ok := finalModel.(view.Model); ok {
 		_ = fm.Close()

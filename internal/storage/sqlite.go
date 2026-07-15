@@ -13,7 +13,6 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-// SQLiteStore provides persistence for habits using an embedded SQLite database.
 type SQLiteStore struct {
 	db *sql.DB
 }
@@ -27,12 +26,10 @@ func getDBPath() string {
 	return filepath.Join(dir, "habit.db")
 }
 
-// OpenSQLite opens (or creates) the default SQLite database and runs migrations.
 func OpenSQLite() (*SQLiteStore, error) {
 	return OpenSQLiteAt(getDBPath())
 }
 
-// OpenSQLiteAt opens (or creates) a SQLite database at dbPath and runs migrations.
 func OpenSQLiteAt(dbPath string) (*SQLiteStore, error) {
 	if err := os.MkdirAll(filepath.Dir(dbPath), 0o755); err != nil {
 		return nil, err
@@ -151,7 +148,6 @@ func (s *SQLiteStore) migrateV3() error {
 	return nil
 }
 
-// Close closes the database connection.
 func (s *SQLiteStore) Close() error { return s.db.Close() }
 
 func normalizeHabitDefaults(h *models.Habit) {
@@ -166,7 +162,6 @@ func normalizeHabitDefaults(h *models.Habit) {
 	}
 }
 
-// CreateHabit inserts a new habit and returns the populated model with ID.
 func (s *SQLiteStore) CreateHabit(ctx context.Context, h *models.Habit) (*models.Habit, error) {
 	if h == nil {
 		return nil, errors.New("habit is nil")
@@ -202,7 +197,6 @@ func (s *SQLiteStore) CreateHabit(ctx context.Context, h *models.Habit) (*models
 	return h, nil
 }
 
-// UpdateHabit updates editable fields on a habit by ID.
 func (s *SQLiteStore) UpdateHabit(ctx context.Context, h *models.Habit) error {
 	if h == nil || h.ID == 0 {
 		return errors.New("invalid habit")
@@ -217,7 +211,6 @@ func (s *SQLiteStore) UpdateHabit(ctx context.Context, h *models.Habit) error {
 	return err
 }
 
-// DeleteHabit removes a habit by ID and its completions.
 func (s *SQLiteStore) DeleteHabit(ctx context.Context, id int64) error {
 	if id == 0 {
 		return errors.New("invalid id")
@@ -237,7 +230,6 @@ func (s *SQLiteStore) DeleteHabit(ctx context.Context, id int64) error {
 	return tx.Commit()
 }
 
-// ListHabits returns all habits ordered by created_at.
 func (s *SQLiteStore) ListHabits(ctx context.Context) ([]models.Habit, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT id, name, description, frequency, goal, color, icon, start_date, created_at, updated_at
