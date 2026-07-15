@@ -10,7 +10,8 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-const formSelectHeight = 6
+const formSelectHeight =6
+const daySelectHeight = 8
 
 type habitFormFields struct {
 	Name        string
@@ -91,7 +92,7 @@ func buildHabitForm(fields *habitFormFields, confirmTitle string) *huh.Form {
 					huh.NewOption("Saturday", "saturday"),
 					huh.NewOption("Sunday", "sunday"),
 				).
-				Height(formSelectHeight).
+				Height(daySelectHeight).
 				Value(&fields.Frequency),
 		),
 		huh.NewGroup(
