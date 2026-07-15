@@ -24,27 +24,25 @@ const (
 	screenEditHabit
 )
 
-var currentTheme theme.Theme
+var (
+	currentTheme  theme.Theme
+	themeConfig   *theme.Config
+)
 
 var (
-	rosewater lipgloss.Color
-	flamingo  lipgloss.Color
-	mauve     lipgloss.Color
-	red       lipgloss.Color
-	peach     lipgloss.Color
-	yellow    lipgloss.Color
-	green     lipgloss.Color
-	teal      lipgloss.Color
-	sky       lipgloss.Color
-	sapphire  lipgloss.Color
-	blue      lipgloss.Color
-	lavender  lipgloss.Color
-	text      lipgloss.Color
-	subtext   lipgloss.Color
-	overlay   lipgloss.Color
-	surface1  lipgloss.Color
-	surface2  lipgloss.Color
-	pink      lipgloss.Color
+	text       lipgloss.Color
+	subtext    lipgloss.Color
+	muted      lipgloss.Color
+	surface    lipgloss.Color
+	surfaceAlt lipgloss.Color
+	primary    lipgloss.Color
+	red        lipgloss.Color
+	orange     lipgloss.Color
+	yellow     lipgloss.Color
+	green      lipgloss.Color
+	blue       lipgloss.Color
+	purple     lipgloss.Color
+	pink       lipgloss.Color
 )
 
 func initTheme() {
@@ -53,30 +51,42 @@ func initTheme() {
 		log.Printf("Error loading theme config: %s, using default", err)
 		config = &theme.Config{}
 	}
+	themeConfig = config
 	currentTheme = theme.GetTheme(config)
 	applyThemeColors()
 }
 
 func applyThemeColors() {
 	t := currentTheme.Base
-	rosewater = lipgloss.Color(t.Rosewater)
-	flamingo = lipgloss.Color(t.Flamingo)
-	mauve = lipgloss.Color(t.Mauve)
-	red = lipgloss.Color(t.Red)
-	peach = lipgloss.Color(t.Peach)
-	yellow = lipgloss.Color(t.Yellow)
-	green = lipgloss.Color(t.Green)
-	teal = lipgloss.Color(t.Teal)
-	sky = lipgloss.Color(t.Sky)
-	sapphire = lipgloss.Color(t.Sapphire)
-	blue = lipgloss.Color(t.Blue)
-	lavender = lipgloss.Color(t.Lavender)
 	text = lipgloss.Color(t.Text)
 	subtext = lipgloss.Color(t.Subtext)
-	overlay = lipgloss.Color(t.Overlay)
-	surface1 = lipgloss.Color(t.Surface1)
-	surface2 = lipgloss.Color(t.Surface2)
+	muted = lipgloss.Color(t.Muted)
+	surface = lipgloss.Color(t.Surface)
+	surfaceAlt = lipgloss.Color(t.SurfaceAlt)
+	primary = lipgloss.Color(t.Primary)
+	red = lipgloss.Color(t.Red)
+	orange = lipgloss.Color(t.Orange)
+	yellow = lipgloss.Color(t.Yellow)
+	green = lipgloss.Color(t.Green)
+	blue = lipgloss.Color(t.Blue)
+	purple = lipgloss.Color(t.Purple)
 	pink = lipgloss.Color(t.Pink)
+}
+
+func cycleTheme(m Model) Model {
+	if themeConfig == nil {
+		themeConfig = &theme.Config{}
+	}
+	next := theme.NextThemeName(currentTheme.Name)
+	themeConfig.Theme = next
+	currentTheme = theme.GetTheme(themeConfig)
+	applyThemeColors()
+	m.styles = newStyles(m.lg)
+	m.statusMsg = "Theme: " + currentTheme.Name
+	if err := theme.SaveConfig(themeConfig); err != nil {
+		log.Printf("Error saving theme config: %s", err)
+	}
+	return m
 }
 
 func getHabitColor(colorName string) lipgloss.Color {
@@ -87,18 +97,18 @@ func getHabitColor(colorName string) lipgloss.Color {
 	colorKey = strings.ToLower(colorKey)
 
 	colorMap := map[string]lipgloss.Color{
-		"red":    lipgloss.Color(currentTheme.Base.Red),
-		"blue":   lipgloss.Color(currentTheme.Base.Blue),
-		"green":  lipgloss.Color(currentTheme.Base.Green),
-		"yellow": lipgloss.Color(currentTheme.Base.Yellow),
-		"orange": lipgloss.Color(currentTheme.Base.Peach),
-		"purple": lipgloss.Color(currentTheme.Base.Mauve),
-		"pink":   lipgloss.Color(currentTheme.Base.Pink),
+		"red":    red,
+		"blue":   blue,
+		"green":  green,
+		"yellow": yellow,
+		"orange": orange,
+		"purple": purple,
+		"pink":   pink,
 	}
 
 	c, ok := colorMap[colorKey]
 	if !ok {
-		c = lipgloss.Color(currentTheme.Base.Mauve)
+		c = purple
 	}
 	return c
 }
@@ -120,12 +130,12 @@ func newStyles(lg *lipgloss.Renderer) *Styles {
 	s.Base = lg.NewStyle().
 		Padding(1, 2, 0, 1)
 	s.HeaderText = lg.NewStyle().
-		Foreground(lavender).
+		Foreground(primary).
 		Bold(true).
 		MarginLeft(2)
 	s.Status = lg.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lavender).
+		BorderForeground(primary).
 		PaddingLeft(1).
 		MarginTop(1)
 	s.StatusHeader = lg.NewStyle().
@@ -136,14 +146,14 @@ func newStyles(lg *lipgloss.Renderer) *Styles {
 	s.ErrorHeaderText = s.HeaderText.
 		Foreground(red)
 	s.Help = lg.NewStyle().
-		Foreground(overlay)
+		Foreground(muted)
 	s.ContentBox = lg.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lavender).
+		BorderForeground(primary).
 		Padding(1, 2).
 		MarginLeft(2)
 	s.Title = lg.NewStyle().
-		Foreground(lavender).
+		Foreground(primary).
 		Bold(true).
 		MarginLeft(2)
 	return &s
@@ -178,7 +188,7 @@ func (m Model) appBoundaryView(title string) string {
 		0,
 		lipgloss.Left,
 		m.styles.HeaderText.Render(title),
-		lipgloss.WithWhitespaceForeground(lavender),
+		lipgloss.WithWhitespaceForeground(primary),
 	)
 }
 

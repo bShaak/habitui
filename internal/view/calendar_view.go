@@ -107,7 +107,7 @@ func viewCalendar(m Model) string {
 	content.WriteString("\n")
 
 	separatorCell := lipgloss.NewStyle().
-		Foreground(overlay).
+		Foreground(muted).
 		Width(cellWidth).
 		Align(lipgloss.Center)
 	content.WriteString(emptyCell.Render(" "))
@@ -153,15 +153,15 @@ func viewCalendar(m Model) string {
 				if row == m.cursor && col == m.calendarCol {
 					if isComplete {
 						cellStyle = cellStyle.
-							Background(surface1).
+							Background(surface).
 							Foreground(green)
 					} else if isPartial {
 						cellStyle = cellStyle.
-							Background(surface1).
+							Background(surface).
 							Foreground(yellow)
 					} else {
 						cellStyle = cellStyle.
-							Background(surface1).
+							Background(surface).
 							Foreground(text)
 					}
 				}
@@ -179,12 +179,12 @@ func viewCalendar(m Model) string {
 				} else if isScheduled || hasSpecificDays {
 					cellContent = "·"
 					if !(row == m.cursor && col == m.calendarCol) {
-						cellStyle = cellStyle.Foreground(overlay)
+						cellStyle = cellStyle.Foreground(muted)
 					}
 				} else {
 					cellContent = "-"
 					if !(row == m.cursor && col == m.calendarCol) {
-						cellStyle = cellStyle.Foreground(overlay)
+						cellStyle = cellStyle.Foreground(muted)
 					}
 				}
 

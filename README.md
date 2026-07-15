@@ -9,6 +9,7 @@ Habitui is a terminal habit tracker. Add habits, check them off each day, and re
 - Weekly calendar for reviewing and toggling past days
 - Stats for the last 7 days, 30 days, and year
 - Streaks on the main view (shown at 3+ days)
+- Multiple color themes (dark and light)
 - Local SQLite storage under `~/.habitui/`
 
 ## Install
@@ -50,6 +51,7 @@ make install   # or: make run
 | `a` | Add habit |
 | `e` | Edit selected habit |
 | `x` | Delete selected habit (`y` to confirm) |
+| `t` | Cycle color theme |
 | `c` | Week calendar |
 | `s` | Statistics |
 | `esc` | Back to main view |
@@ -81,38 +83,49 @@ Everything lives in `~/.habitui/`:
 
 ## Configuration
 
-Optional color overrides use Catppuccin Mocha defaults. Create `~/.habitui/habitui.config`:
+Themes and optional color overrides live in `~/.habitui/habitui.config`. Press `t` on the main view to cycle themes (selection is saved automatically).
 
 ```json
 {
+  "theme": "catppuccin-mocha",
   "base": {
-    "red": "#ff6b6b",
+    "primary": "#b4befe",
     "green": "#51cf66",
     "text": "#ffffff"
   }
 }
 ```
 
-| Key | Default | Used for |
-|-----|---------|----------|
-| `rosewater` | `#f5e0dc` | UI accents |
-| `flamingo` | `#f2cdcd` | UI accents |
-| `mauve` | `#cba6f7` | Default habit color |
-| `red` | `#f38ba8` | Habit color |
-| `peach` | `#fab387` | Habit color / streak accent |
-| `yellow` | `#f9e2af` | Habit color / partial completion |
-| `green` | `#a6e3a1` | Habit color / success |
-| `teal` | `#94e2d5` | UI accents |
-| `sky` | `#89dceb` | UI accents |
-| `sapphire` | `#74c7ec` | UI accents |
-| `blue` | `#89b4fa` | Habit color |
-| `lavender` | `#b4befe` | Headers and borders |
-| `text` | `#cdd6f4` | Main text |
-| `subtext` | `#bac2de` | Secondary text |
-| `overlay` | `#9399b2` | Muted text / help |
-| `surface1` | `#45475a` | Selection backgrounds |
-| `surface2` | `#585b70` | Elevated backgrounds |
-| `pink` | `#f5c2e7` | Habit color |
+### Built-in themes
+
+| Theme | Mode |
+|-------|------|
+| `catppuccin-mocha` | Dark (default) |
+| `catppuccin-latte` | Light |
+| `dracula` | Dark |
+| `nord` | Dark |
+| `gruvbox-dark` | Dark |
+| `gruvbox-light` | Light |
+| `tokyo-night` | Dark |
+| `rose-pine` | Dark |
+
+### Color slots
+
+| Key | Used for |
+|-----|----------|
+| `text` | Main text |
+| `subtext` | Secondary labels |
+| `muted` | Help text / dim UI |
+| `surface` | Selection backgrounds |
+| `surface_alt` | Elevated surfaces |
+| `primary` | Headers and borders |
+| `red` | Errors / habit color |
+| `orange` | Streaks / habit color |
+| `yellow` | Partial completion / habit color |
+| `green` | Success / habit color |
+| `blue` | Calendar accents / habit color |
+| `purple` | Default habit color |
+| `pink` | Highlights / habit color |
 
 If `~/.habitui/habitui.config` is missing, Habitui also checks `./habitui.config` in the current directory (useful while developing).
 

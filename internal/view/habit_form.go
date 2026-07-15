@@ -5,7 +5,9 @@ import (
 	"strconv"
 
 	"github.com/bShaak/habitui/internal/models"
+	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/huh"
+	"github.com/charmbracelet/lipgloss"
 )
 
 const formSelectHeight = 6
@@ -122,7 +124,54 @@ func buildHabitForm(fields *habitFormFields, confirmTitle string) *huh.Form {
 				Negative("No").
 				Value(&fields.Confirm),
 		),
-	).WithWidth(60).WithTheme(huh.ThemeCatppuccin())
+	).WithWidth(60).WithTheme(formTheme())
+}
+
+// formTheme builds a huh theme from the active Habitui palette so create/edit
+// forms follow theme cycling instead of staying locked to Catppuccin.
+func formTheme() *huh.Theme {
+	t := huh.ThemeBase()
+
+	t.Focused.Base = t.Focused.Base.BorderForeground(subtext)
+	t.Focused.Card = t.Focused.Base
+	t.Focused.Title = t.Focused.Title.Foreground(primary)
+	t.Focused.NoteTitle = t.Focused.NoteTitle.Foreground(primary)
+	t.Focused.Directory = t.Focused.Directory.Foreground(primary)
+	t.Focused.Description = t.Focused.Description.Foreground(muted)
+	t.Focused.ErrorIndicator = t.Focused.ErrorIndicator.Foreground(red)
+	t.Focused.ErrorMessage = t.Focused.ErrorMessage.Foreground(red)
+	t.Focused.SelectSelector = t.Focused.SelectSelector.Foreground(pink)
+	t.Focused.NextIndicator = t.Focused.NextIndicator.Foreground(pink)
+	t.Focused.PrevIndicator = t.Focused.PrevIndicator.Foreground(pink)
+	t.Focused.Option = t.Focused.Option.Foreground(text)
+	t.Focused.MultiSelectSelector = t.Focused.MultiSelectSelector.Foreground(pink)
+	t.Focused.SelectedOption = t.Focused.SelectedOption.Foreground(green)
+	t.Focused.SelectedPrefix = t.Focused.SelectedPrefix.Foreground(green)
+	t.Focused.UnselectedPrefix = t.Focused.UnselectedPrefix.Foreground(text)
+	t.Focused.UnselectedOption = t.Focused.UnselectedOption.Foreground(text)
+	t.Focused.FocusedButton = t.Focused.FocusedButton.Foreground(surface).Background(pink)
+	t.Focused.BlurredButton = t.Focused.BlurredButton.Foreground(text).Background(surface)
+
+	t.Focused.TextInput.Cursor = t.Focused.TextInput.Cursor.Foreground(orange)
+	t.Focused.TextInput.Placeholder = t.Focused.TextInput.Placeholder.Foreground(muted)
+	t.Focused.TextInput.Prompt = t.Focused.TextInput.Prompt.Foreground(pink)
+
+	t.Blurred = t.Focused
+	t.Blurred.Base = t.Blurred.Base.BorderStyle(lipgloss.HiddenBorder())
+	t.Blurred.Card = t.Blurred.Base
+
+	t.Help = help.New().Styles
+	t.Help.Ellipsis = t.Help.Ellipsis.Foreground(muted)
+	t.Help.ShortKey = t.Help.ShortKey.Foreground(muted)
+	t.Help.ShortDesc = t.Help.ShortDesc.Foreground(subtext)
+	t.Help.ShortSeparator = t.Help.ShortSeparator.Foreground(muted)
+	t.Help.FullKey = t.Help.FullKey.Foreground(muted)
+	t.Help.FullDesc = t.Help.FullDesc.Foreground(subtext)
+	t.Help.FullSeparator = t.Help.FullSeparator.Foreground(muted)
+
+	t.Group.Title = t.Focused.Title
+	t.Group.Description = t.Focused.Description
+	return t
 }
 
 func applyFormSize(form *huh.Form, width, height int) {

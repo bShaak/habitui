@@ -42,7 +42,7 @@ func viewStats(m Model) string {
 
 	tabNames := []string{"Last 7 Days", "Last 30 Days", "Last Year"}
 	tabStyle := lipgloss.NewStyle().Foreground(text).Padding(0, 1)
-	activeTabStyle := tabStyle.Foreground(lavender).Bold(true).Background(surface1)
+	activeTabStyle := tabStyle.Foreground(primary).Bold(true).Background(surface)
 
 	var tabs strings.Builder
 	for i, name := range tabNames {
@@ -58,7 +58,7 @@ func viewStats(m Model) string {
 	period := periods[m.statsTab]
 
 	periodLabelStyle := lipgloss.NewStyle().
-		Foreground(lavender).
+		Foreground(primary).
 		Bold(true).
 		Width(20)
 
@@ -76,7 +76,7 @@ func viewStats(m Model) string {
 	content.WriteString("\n")
 
 	separator := strings.Repeat("─", 50)
-	content.WriteString(lipgloss.NewStyle().Foreground(overlay).Render(separator))
+	content.WriteString(lipgloss.NewStyle().Foreground(muted).Render(separator))
 	content.WriteString("\n")
 
 	if len(m.habits) == 0 {

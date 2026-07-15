@@ -101,6 +101,8 @@ func updateMain(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 			if len(m.habits) > 0 {
 				m.confirmingDelete = true
 			}
+		case "t":
+			return cycleTheme(m), nil
 		case "enter":
 			if len(m.habits) == 0 {
 				return m, nil
@@ -142,6 +144,13 @@ func deleteSelectedHabit(m Model) Model {
 	return m
 }
 
+func statusStyle(msg string) lipgloss.Style {
+	if strings.HasPrefix(msg, "Theme:") {
+		return lipgloss.NewStyle().Foreground(primary)
+	}
+	return lipgloss.NewStyle().Foreground(red)
+}
+
 func viewMain(m Model) string {
 	s := m.styles
 	var b strings.Builder
@@ -152,10 +161,10 @@ func viewMain(m Model) string {
 	b.WriteString("\n\n")
 	var content strings.Builder
 	if len(m.habits) == 0 {
-		content.WriteString(s.Help.Render("No habits created yet.\n\nPress 'a' to create a new one."))
+		content.WriteString(s.Help.Render("No habits created yet.\n\nPress 'a' to create a new one.  |  t: Theme"))
 		if m.statusMsg != "" {
 			content.WriteString("\n\n")
-			content.WriteString(lipgloss.NewStyle().Foreground(red).Render(m.statusMsg))
+			content.WriteString(statusStyle(m.statusMsg).Render(m.statusMsg))
 		}
 	} else {
 		for i, h := range m.habits {
@@ -186,7 +195,7 @@ func viewMain(m Model) string {
 			}
 			nameStyle := lipgloss.NewStyle().Foreground(habitColor)
 			completedStyle := lipgloss.NewStyle().Foreground(habitColor)
-			streakStyle := lipgloss.NewStyle().Foreground(peach)
+			streakStyle := lipgloss.NewStyle().Foreground(orange)
 			content.WriteString(fmt.Sprintf("%s %s %s%s\n",
 				cursor,
 				nameStyle.Render(name),
@@ -203,10 +212,10 @@ func viewMain(m Model) string {
 			content.WriteString(confirm)
 		} else {
 			if m.statusMsg != "" {
-				content.WriteString(lipgloss.NewStyle().Foreground(red).Render(m.statusMsg))
+				content.WriteString(statusStyle(m.statusMsg).Render(m.statusMsg))
 				content.WriteString("\n")
 			}
-			help := s.Help.Render("a: Add  |  c: Calendar  |  s: Stats  |  e: Edit  |  x: Delete  |  enter: Toggle  |  q: Quit")
+			help := s.Help.Render("a: Add  |  c: Calendar  |  s: Stats  |  e: Edit  |  x: Delete  |  t: Theme  |  enter: Toggle  |  q: Quit")
 			content.WriteString(help)
 		}
 	}
