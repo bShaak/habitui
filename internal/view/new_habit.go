@@ -50,7 +50,7 @@ func updateCreateHabit(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 	color := m.formFields.Color
 	if color == "" {
-		color = "purple"
+		color = "red"
 	}
 	habit := models.Habit{
 		Name:        name,

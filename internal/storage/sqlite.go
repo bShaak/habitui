@@ -158,7 +158,7 @@ func normalizeHabitDefaults(h *models.Habit) {
 		h.Goal = 1
 	}
 	if h.Color == "" {
-		h.Color = "purple"
+		h.Color = "red"
 	}
 }
 

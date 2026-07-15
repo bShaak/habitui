@@ -92,7 +92,7 @@ func cycleTheme(m Model) Model {
 func getHabitColor(colorName string) lipgloss.Color {
 	colorKey := colorName
 	if colorKey == "" {
-		colorKey = "purple"
+		colorKey = "red"
 	}
 	colorKey = strings.ToLower(colorKey)
 
@@ -108,7 +108,7 @@ func getHabitColor(colorName string) lipgloss.Color {
 
 	c, ok := colorMap[colorKey]
 	if !ok {
-		c = purple
+		c = red
 	}
 	return c
 }

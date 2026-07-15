@@ -24,14 +24,14 @@ type habitFormFields struct {
 
 func newHabitFormFields() *habitFormFields {
 	return &habitFormFields{
-		Color: "purple",
+		Color: "red",
 	}
 }
 
 func habitFormFieldsFromHabit(habit models.Habit) *habitFormFields {
 	color := habit.Color
 	if color == "" {
-		color = "purple"
+		color = "red"
 	}
 	return &habitFormFields{
 		Name:        habit.Name,
