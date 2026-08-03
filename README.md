@@ -42,6 +42,24 @@ make install   # or: make run
 | `make install` | Install to `$(go env GOPATH)/bin` |
 | `make clean`   | Remove `bin/`                     |
 
+## CLI
+
+`habitui` launches the TUI by default. For automation (e.g. Reminder Agent), use the `cli` subcommand against the same SQLite database:
+
+```bash
+habitui cli list --json
+habitui cli complete --id 1 --date 2026-08-03 --json
+```
+
+| Flag / env | Description |
+| ---------- | ----------- |
+| `--json` | Machine-readable JSON on stdout |
+| `--db path` | SQLite path (default: `~/.habitui/habit.db`) |
+| `HABITUI_DB` | Same as `--db` when the flag is omitted |
+| `--date YYYY-MM-DD` | Day to list or complete (default: today) |
+
+`list` includes `due` (scheduled that day) and `complete` (goal met). Habit create/edit/delete stays in the TUI.
+
 ## Usage
 
 | Key            | Action                                 |
