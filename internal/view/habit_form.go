@@ -4,6 +4,7 @@ import (
 	"errors"
 	"strconv"
 
+	"github.com/bShaak/habitui/internal/habits"
 	"github.com/bShaak/habitui/internal/models"
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/huh"
@@ -36,7 +37,7 @@ func habitFormFieldsFromHabit(habit models.Habit) *habitFormFields {
 	}
 	return &habitFormFields{
 		Name:        habit.Name,
-		GoalString:  strconv.Itoa(effectiveGoal(habit.Goal)),
+		GoalString:  strconv.Itoa(habits.EffectiveGoal(habit.Goal)),
 		Description: habit.Description,
 		Frequency:   frequencyDaysForForm(habit.Frequency),
 		Color:       color,

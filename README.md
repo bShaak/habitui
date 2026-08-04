@@ -58,7 +58,7 @@ habitui cli complete --id 1 --date 2026-08-03 --json
 | `HABITUI_DB` | Same as `--db` when the flag is omitted |
 | `--date YYYY-MM-DD` | Day to list or complete (default: today) |
 
-`list` includes `due` (scheduled that day) and `complete` (goal met). Habit create/edit/delete stays in the TUI.
+`list` includes `due` (scheduled that day) and `complete` (goal met). On `complete`, `already_complete` is true only when the habit was already at/above goal (no write); a new completion always has `already_complete: false` and a `completion` object. Habit create/edit/delete stays in the TUI.
 
 ## Usage
 

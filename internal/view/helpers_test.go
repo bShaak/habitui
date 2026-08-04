@@ -5,6 +5,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/bShaak/habitui/internal/habits"
 	"github.com/bShaak/habitui/internal/models"
 )
 
@@ -45,25 +46,25 @@ func TestFrequencyDaysForForm(t *testing.T) {
 }
 
 func TestIsScheduledOnDay(t *testing.T) {
-	if !isScheduledOnDay("daily", "monday") {
+	if !habits.IsScheduledOnDay("daily", "monday") {
 		t.Fatal("daily should schedule monday")
 	}
-	if !isScheduledOnDay("", "sunday") {
+	if !habits.IsScheduledOnDay("", "sunday") {
 		t.Fatal("empty frequency should schedule all days")
 	}
-	if isScheduledOnDay("monday,wednesday", "tuesday") {
+	if habits.IsScheduledOnDay("monday,wednesday", "tuesday") {
 		t.Fatal("tuesday should not be scheduled")
 	}
-	if !isScheduledOnDay("monday,wednesday", "wednesday") {
+	if !habits.IsScheduledOnDay("monday,wednesday", "wednesday") {
 		t.Fatal("wednesday should be scheduled")
 	}
 }
 
 func TestEffectiveGoal(t *testing.T) {
-	if effectiveGoal(0) != 1 {
+	if habits.EffectiveGoal(0) != 1 {
 		t.Fatal("expected goal clamp to 1")
 	}
-	if effectiveGoal(3) != 3 {
+	if habits.EffectiveGoal(3) != 3 {
 		t.Fatal("expected goal 3 unchanged")
 	}
 }

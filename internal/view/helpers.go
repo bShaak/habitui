@@ -4,18 +4,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bShaak/habitui/internal/habits"
 	"github.com/bShaak/habitui/internal/models"
 )
 
 var allWeekdays = []string{
 	"monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
-}
-
-func effectiveGoal(goal int) int {
-	if goal < 1 {
-		return 1
-	}
-	return goal
 }
 
 func startOfDay(t time.Time) time.Time {
@@ -94,6 +88,7 @@ func truncateRunes(s string, max int) string {
 	return string(runes[:max-1]) + "…"
 }
 
+// parseFrequency builds a set of day tokens from a frequency string (view-specific calendar UI).
 func parseFrequency(frequency string) map[string]bool {
 	days := make(map[string]bool)
 	for _, d := range strings.Split(strings.ToLower(frequency), ",") {
@@ -105,37 +100,10 @@ func parseFrequency(frequency string) map[string]bool {
 	return days
 }
 
-func getDayName(t time.Time) string {
-	return strings.ToLower(t.Weekday().String())
-}
-
-func isScheduledOnDay(frequency string, dayName string) bool {
-	if frequency == "" || strings.ToLower(frequency) == "daily" {
-		return true
-	}
-	days := parseFrequency(frequency)
-	return days[dayName]
-}
-
-func getCompletionsForHabitAndDate(completions []models.Completion, habitID int64, date time.Time) int {
-	count := 0
-	for _, c := range completions {
-		if c.HabitID != habitID {
-			continue
-		}
-		completedAt, err := time.Parse(time.RFC3339, c.CompletedAt)
-		if err != nil {
-			continue
-		}
-		if inDayBounds(completedAt, date) {
-			count++
-		}
-	}
-	return count
-}
-
+// isCompleted reports whether today's pre-filtered completion list meets the habit goal.
+// It uses todayCompletionCount (no timestamp re-parse) because m.completions is already today-scoped.
 func isCompleted(completions []models.Completion, h models.Habit) bool {
-	return todayCompletionCount(completions, h.ID) >= effectiveGoal(h.Goal)
+	return todayCompletionCount(completions, h.ID) >= habits.EffectiveGoal(h.Goal)
 }
 
 func todayCompletionCount(completions []models.Completion, habitID int64) int {

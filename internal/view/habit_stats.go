@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/bShaak/habitui/internal/habits"
 	"github.com/bShaak/habitui/internal/models"
 )
 
@@ -40,7 +41,7 @@ func countScheduledDaysInRange(habit models.Habit, startDate, endDate time.Time)
 	current := startOfDay(startDate)
 	end := startOfDay(endDate)
 	for !current.After(end) {
-		if isScheduledOnDay(habit.Frequency, getDayName(current)) {
+		if habits.IsDueOnDate(habit, current) {
 			count++
 		}
 		current = current.AddDate(0, 0, 1)
@@ -87,7 +88,7 @@ func getCompletionsForHabitInRange(completions []models.Completion, habitID int6
 
 func countGoalDaysMetInRange(habit models.Habit, completions []models.Completion, startDate, endDate time.Time) int {
 	byDay := completionsByDay(completions, habit.ID)
-	goal := effectiveGoal(habit.Goal)
+	goal := habits.EffectiveGoal(habit.Goal)
 	met := 0
 	current := startOfDay(startDate)
 	end := startOfDay(endDate)
@@ -108,7 +109,7 @@ func countGoalDaysMetInRange(habit models.Habit, completions []models.Completion
 // Unscheduled days that were completed do count (so off-day check-ins aren't ignored).
 func getHabitStreak(habit models.Habit, completions []models.Completion, today time.Time) (int, int) {
 	byDay := completionsByDay(completions, habit.ID)
-	goal := effectiveGoal(habit.Goal)
+	goal := habits.EffectiveGoal(habit.Goal)
 
 	dayMet := func(d time.Time) bool {
 		return byDay[startOfDay(d).In(time.Local).Format("2006-01-02")] >= goal
@@ -120,7 +121,7 @@ func getHabitStreak(habit models.Habit, completions []models.Completion, today t
 	graceForToday := true
 	maxLookbackDays := 365 * streakLookbackYears
 	for i := 0; i < maxLookbackDays; i++ {
-		scheduled := isScheduledOnDay(habit.Frequency, getDayName(checkDate))
+		scheduled := habits.IsDueOnDate(habit, checkDate)
 		met := dayMet(checkDate)
 
 		if !scheduled && !met {
@@ -156,7 +157,7 @@ func getHabitStreak(habit models.Habit, completions []models.Completion, today t
 	longestStreak := 0
 	tempStreak := 0
 	for d := start; !d.After(startOfDay(today)); d = d.AddDate(0, 0, 1) {
-		scheduled := isScheduledOnDay(habit.Frequency, getDayName(d))
+		scheduled := habits.IsDueOnDate(habit, d)
 		met := dayMet(d)
 		if !scheduled && !met {
 			continue

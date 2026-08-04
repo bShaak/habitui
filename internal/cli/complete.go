@@ -86,7 +86,6 @@ func runComplete(args []string) error {
 	}
 	resp.Completion = c
 	resp.CompletionCount = count + 1
-	resp.AlreadyComplete = resp.CompletionCount >= goal
 
 	return writeCompleteOutput(jsonOut, resp)
 }

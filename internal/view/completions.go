@@ -5,13 +5,14 @@ import (
 	"log"
 	"time"
 
+	"github.com/bShaak/habitui/internal/habits"
 	"github.com/bShaak/habitui/internal/models"
 )
 
 // toggleDayCompletion adds a completion for habit on day, or removes all completions that day if the goal is already met.
 func (m Model) toggleDayCompletion(habit models.Habit, day time.Time, list []models.Completion) ([]models.Completion, error) {
-	goal := effectiveGoal(habit.Goal)
-	count := getCompletionsForHabitAndDate(list, habit.ID, day)
+	goal := habits.EffectiveGoal(habit.Goal)
+	count := habits.CompletionCountForDate(list, habit.ID, day)
 
 	if count >= goal {
 		completions, err := m.store.GetCompletionsByHabitID(context.Background(), habit.ID)

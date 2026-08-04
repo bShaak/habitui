@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bShaak/habitui/internal/habits"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -173,13 +174,13 @@ func viewMain(m Model) string {
 				cursor = ">"
 			}
 			habitColor := getHabitColor(h.Color)
-			scheduledToday := isScheduledOnDay(h.Frequency, getDayName(time.Now()))
+			scheduledToday := habits.IsDueOnDate(h, time.Now())
 			completed := ""
 			if isCompleted(m.completions, h) {
 				completed = "✓"
 			} else if scheduledToday {
 				completionCount := todayCompletionCount(m.completions, h.ID)
-				completed = fmt.Sprintf("✗ (%d/%d)", completionCount, effectiveGoal(h.Goal))
+				completed = fmt.Sprintf("✗ (%d/%d)", completionCount, habits.EffectiveGoal(h.Goal))
 			}
 			name := formatHabitLabel(h)
 			if name == "" || strings.TrimSpace(h.Name) == "" {

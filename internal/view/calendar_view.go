@@ -6,6 +6,7 @@ import (
 	"log"
 	"strings"
 
+	"github.com/bShaak/habitui/internal/habits"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -136,16 +137,17 @@ func viewCalendar(m Model) string {
 
 			for col := 0; col < 7; col++ {
 				date := m.weekStart.AddDate(0, 0, col)
-				dayName := getDayName(date)
-				completionCount := getCompletionsForHabitAndDate(m.weekCompletions, habit.ID, date)
+				dayName := habits.DayName(date)
+				completionCount := habits.CompletionCountForDate(m.weekCompletions, habit.ID, date)
 
 				var cellContent string
 				var cellStyle lipgloss.Style
 
-				isScheduled := isScheduledOnDay(habit.Frequency, dayName)
-				isComplete := completionCount >= effectiveGoal(habit.Goal)
-				isPartial := completionCount > 0 && completionCount < effectiveGoal(habit.Goal)
-				_, frequencyHasSpecificDays := frequencyDays[getDayName(date)]
+				isScheduled := habits.IsScheduledOnDay(habit.Frequency, dayName)
+				goal := habits.EffectiveGoal(habit.Goal)
+				isComplete := completionCount >= goal
+				isPartial := completionCount > 0 && completionCount < goal
+				_, frequencyHasSpecificDays := frequencyDays[dayName]
 				hasSpecificDays := len(frequencyDays) > 0 && frequencyHasSpecificDays
 
 				cellStyle = lipgloss.NewStyle().Width(cellWidth).Align(lipgloss.Center)
