@@ -14,13 +14,27 @@ Habitui is a terminal habit tracker. Add habits, check them off each day, and re
 
 ## Install
 
-Requires Go 1.23+.
+Requires [Go 1.23+](https://go.dev/doc/install) and Git. Habitui is pure Go (no C compiler). It builds for macOS and Linux on amd64 and arm64.
+
+Check that Go is new enough (`go version` should report `go1.23` or later). On macOS, `brew install go git` is enough. On Linux, the default distro package is often too old (for example Ubuntu 24.04’s `golang-go` is 1.22) — use the [official installer](https://go.dev/doc/install) or a versioned package such as `golang-1.23`.
 
 ```bash
 go install github.com/bShaak/habitui/cmd/habitui@latest
 ```
 
-Make sure `$(go env GOPATH)/bin` is on your `PATH`, then run:
+If `@latest` cannot resolve (no module proxy / no Git tags), install from the default branch instead:
+
+```bash
+go install github.com/bShaak/habitui/cmd/habitui@main
+```
+
+`go install` writes the binary to `$(go env GOPATH)/bin` (or `$(go env GOBIN)` if set). That directory is not on `PATH` by default. This line works in bash and zsh; add it to `~/.zshrc` (macOS default) or `~/.bashrc` (most Linux distros), then open a new terminal:
+
+```bash
+export PATH="$(go env GOPATH)/bin:$PATH"
+```
+
+Then run:
 
 ```bash
 habitui
@@ -31,8 +45,10 @@ habitui
 ```bash
 git clone https://github.com/bShaak/habitui.git
 cd habitui
-make install   # or: make run
+go install ./cmd/habitui   # or: make install
 ```
+
+`make` is optional. On Linux, install it with your package manager if you want the targets below (`sudo apt install make` or `sudo dnf install make`). On macOS it ships with Xcode Command Line Tools (`xcode-select --install`).
 
 | Command        | Description                       |
 | -------------- | --------------------------------- |
