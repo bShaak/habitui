@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bShaak/habitui/internal/api"
 	"github.com/bShaak/habitui/internal/models"
-	"github.com/bShaak/habitui/internal/storage"
 	"github.com/bShaak/habitui/internal/theme"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
@@ -164,7 +164,7 @@ type Model struct {
 	completions       []models.Completion
 	streakCompletions []models.Completion
 	statsCompletions  []models.Completion
-	store             storage.Store
+	svc               api.Service
 	form              *huh.Form
 	formFields        *habitFormFields
 	lg                *lipgloss.Renderer
@@ -197,25 +197,25 @@ func (m Model) renderTitle() string {
 }
 
 func (m Model) Close() error {
-	if m.store == nil {
+	if m.svc == nil {
 		return nil
 	}
-	return m.store.Close()
+	return m.svc.Close()
 }
 
 func InitViewState() Model {
 	initTheme()
-	store, err := storage.OpenSQLite()
+	svc, err := api.Open("")
 	if err != nil {
 		log.Fatalf("Error opening database: %s", err)
 	}
 
-	habits, err := store.ListHabits(context.Background())
+	habits, err := svc.ListHabits(context.Background())
 	if err != nil {
 		log.Fatalf("Error fetching habits: %s", err)
 	}
 
-	completions, err := store.GetCompletionsByDate(context.Background(), time.Now())
+	completions, err := svc.CompletionsByDate(context.Background(), time.Now())
 	if err != nil {
 		log.Fatalf("Error fetching completions: %s", err)
 	}
@@ -223,12 +223,12 @@ func InitViewState() Model {
 	now := time.Now()
 	weekStart := getMonday(now)
 	weekEnd := weekStart.AddDate(0, 0, 6)
-	weekCompletions, err := store.GetCompletionsByDateRange(context.Background(), weekStart, weekEnd)
+	weekCompletions, err := svc.CompletionsByDateRange(context.Background(), weekStart, weekEnd)
 	if err != nil {
 		log.Fatalf("Error fetching week completions: %s", err)
 	}
 
-	streakCompletions, err := loadStreakCompletions(store, now)
+	streakCompletions, err := loadStreakCompletions(svc, now)
 	if err != nil {
 		log.Fatalf("Error fetching streak completions: %s", err)
 	}
@@ -239,7 +239,7 @@ func InitViewState() Model {
 		habits:            habits,
 		completions:       completions,
 		streakCompletions: streakCompletions,
-		store:             store,
+		svc:               svc,
 		lg:                lg,
 		styles:            newStyles(lg),
 		screen:            screenMain,
@@ -264,9 +264,9 @@ func dayRefreshTick() tea.Cmd {
 	})
 }
 
-func loadStreakCompletions(store storage.Store, now time.Time) ([]models.Completion, error) {
+func loadStreakCompletions(svc api.Service, now time.Time) ([]models.Completion, error) {
 	streakStart := startOfDay(now.AddDate(-streakLookbackYears, 0, 0))
-	return store.GetCompletionsByDateRange(context.Background(), streakStart, now)
+	return svc.CompletionsByDateRange(context.Background(), streakStart, now)
 }
 
 func (m Model) Init() tea.Cmd {
@@ -300,7 +300,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.confirmingDelete = false
 				return m, nil
 			}
-			completions, err := m.store.GetCompletionsByDate(context.Background(), time.Now())
+			completions, err := m.svc.CompletionsByDate(context.Background(), time.Now())
 			if err != nil {
 				log.Printf("Error fetching today's completions: %s", err)
 			}
@@ -414,7 +414,7 @@ func applyViewport(content string, height, offset int) string {
 }
 
 func refreshStreakCompletions(m Model) Model {
-	completions, err := loadStreakCompletions(m.store, time.Now())
+	completions, err := loadStreakCompletions(	m.svc, time.Now())
 	if err != nil {
 		log.Printf("Error fetching streak completions: %s", err)
 		return m
@@ -439,7 +439,7 @@ func refreshIfDayChanged(m Model) Model {
 }
 
 func refreshForDay(m Model, now time.Time) Model {
-	completions, err := m.store.GetCompletionsByDate(context.Background(), now)
+	completions, err := m.svc.CompletionsByDate(context.Background(), now)
 	if err != nil {
 		log.Printf("Error fetching today's completions: %s", err)
 		// Leave viewDay unchanged so the next focus/tick retries.
@@ -449,7 +449,7 @@ func refreshForDay(m Model, now time.Time) Model {
 
 	weekStart := getMonday(now)
 	weekEnd := weekStart.AddDate(0, 0, 6)
-	weekCompletions, err := m.store.GetCompletionsByDateRange(context.Background(), weekStart, weekEnd)
+	weekCompletions, err := m.svc.CompletionsByDateRange(context.Background(), weekStart, weekEnd)
 	if err != nil {
 		log.Printf("Error fetching week completions: %s", err)
 	} else {

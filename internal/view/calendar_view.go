@@ -42,7 +42,7 @@ func updateCalendar(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "L":
 			m.weekStart = m.weekStart.AddDate(0, 0, 7)
 			weekEnd := m.weekStart.AddDate(0, 0, 6)
-			completions, err := m.store.GetCompletionsByDateRange(context.Background(), m.weekStart, weekEnd)
+			completions, err := m.svc.CompletionsByDateRange(context.Background(), m.weekStart, weekEnd)
 			if err != nil {
 				log.Printf("Error fetching week completions: %s", err)
 				return m, nil
@@ -51,7 +51,7 @@ func updateCalendar(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "H":
 			m.weekStart = m.weekStart.AddDate(0, 0, -7)
 			weekEnd := m.weekStart.AddDate(0, 0, 6)
-			completions, err := m.store.GetCompletionsByDateRange(context.Background(), m.weekStart, weekEnd)
+			completions, err := m.svc.CompletionsByDateRange(context.Background(), m.weekStart, weekEnd)
 			if err != nil {
 				log.Printf("Error fetching week completions: %s", err)
 				return m, nil

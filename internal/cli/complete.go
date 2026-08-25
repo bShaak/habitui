@@ -6,10 +6,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"time"
 
-	"github.com/bShaak/habitui/internal/habits"
-	"github.com/bShaak/habitui/internal/models"
+	"github.com/bShaak/habitui/internal/api"
 )
 
 func runComplete(args []string) error {
@@ -37,60 +35,20 @@ func runComplete(args []string) error {
 		return err
 	}
 
-	store, err := openStore(resolveDBPath(dbPath))
+	svc, err := openService(dbPath)
 	if err != nil {
 		return err
 	}
-	defer store.Close()
+	defer svc.Close()
 
-	ctx := context.Background()
-	habitList, err := store.ListHabits(ctx)
+	resp, err := svc.CompleteHabit(context.Background(), habitID, date)
 	if err != nil {
 		return err
 	}
-	habit, err := findHabit(habitList, habitID)
-	if err != nil {
-		return err
-	}
-
-	goal := habits.EffectiveGoal(habit.Goal)
-	existing, err := store.GetCompletionsByHabitIDAndDate(ctx, habitID, date)
-	if err != nil {
-		return err
-	}
-	count := habits.CompletionCountForDate(existing, habitID, date)
-
-	resp := completeResponse{
-		HabitID:         habitID,
-		Date:            date.Format("2006-01-02"),
-		CompletionCount: count,
-		Goal:            goal,
-	}
-
-	if count >= goal {
-		resp.AlreadyComplete = true
-		return writeCompleteOutput(jsonOut, resp)
-	}
-
-	now := time.Now()
-	completedAt := time.Date(
-		date.Year(), date.Month(), date.Day(),
-		now.Hour(), now.Minute(), now.Second(), 0, now.Location(),
-	)
-	c, err := store.CreateCompletion(ctx, &models.Completion{
-		HabitID:     habitID,
-		CompletedAt: completedAt.Format(time.RFC3339),
-	})
-	if err != nil {
-		return err
-	}
-	resp.Completion = c
-	resp.CompletionCount = count + 1
-
 	return writeCompleteOutput(jsonOut, resp)
 }
 
-func writeCompleteOutput(jsonOut bool, resp completeResponse) error {
+func writeCompleteOutput(jsonOut bool, resp api.CompleteResult) error {
 	if jsonOut {
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")

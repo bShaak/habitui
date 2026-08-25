@@ -7,9 +7,6 @@ import (
 	"fmt"
 	"os"
 	"time"
-
-	"github.com/bShaak/habitui/internal/habits"
-	"github.com/bShaak/habitui/internal/models"
 )
 
 func runList(args []string) error {
@@ -32,40 +29,15 @@ func runList(args []string) error {
 		return err
 	}
 
-	store, err := openStore(resolveDBPath(dbPath))
+	svc, err := openService(dbPath)
 	if err != nil {
 		return err
 	}
-	defer store.Close()
+	defer svc.Close()
 
-	ctx := context.Background()
-	habitList, err := store.ListHabits(ctx)
+	resp, err := svc.DaySummary(context.Background(), date)
 	if err != nil {
 		return err
-	}
-	completions, err := store.GetCompletionsByDate(ctx, date)
-	if err != nil {
-		return err
-	}
-
-	resp := listResponse{
-		Date:   date.Format("2006-01-02"),
-		Habits: make([]habitSummary, 0, len(habitList)),
-	}
-	for _, h := range habitList {
-		count := habits.CompletionCountForDate(completions, h.ID, date)
-		resp.Habits = append(resp.Habits, habitSummary{
-			ID:              h.ID,
-			Name:            h.Name,
-			Description:     h.Description,
-			Frequency:       h.Frequency,
-			Goal:            habits.EffectiveGoal(h.Goal),
-			Color:           h.Color,
-			Icon:            h.Icon,
-			Due:             habits.IsDueOnDate(h, date),
-			Complete:        count >= habits.EffectiveGoal(h.Goal),
-			CompletionCount: count,
-		})
 	}
 
 	if jsonOut {
@@ -98,13 +70,4 @@ func parseDate(dateStr string) (time.Time, error) {
 		return time.Time{}, fmt.Errorf("invalid --date %q (use YYYY-MM-DD): %w", dateStr, err)
 	}
 	return t, nil
-}
-
-func findHabit(habitList []models.Habit, id int64) (*models.Habit, error) {
-	for i := range habitList {
-		if habitList[i].ID == id {
-			return &habitList[i], nil
-		}
-	}
-	return nil, fmt.Errorf("habit %d not found", id)
 }

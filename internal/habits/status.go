@@ -52,7 +52,8 @@ func endOfDay(t time.Time) time.Time {
 	return time.Date(t.Year(), t.Month(), t.Day(), 23, 59, 59, 999999999, t.Location())
 }
 
-func inDayBounds(t, day time.Time) bool {
+// InDayBounds reports whether timestamp t falls within day's calendar day.
+func InDayBounds(t, day time.Time) bool {
 	start, end := startOfDay(day), endOfDay(day)
 	return (t.Equal(start) || t.After(start)) && (t.Equal(end) || t.Before(end))
 }
@@ -68,7 +69,7 @@ func CompletionCountForDate(completions []models.Completion, habitID int64, date
 		if err != nil {
 			continue
 		}
-		if inDayBounds(completedAt, date) {
+		if InDayBounds(completedAt, date) {
 			count++
 		}
 	}

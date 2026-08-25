@@ -62,7 +62,7 @@ func updateCreateHabit(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 		StartDate:   time.Now().Format(time.RFC3339),
 	}
 
-	h, err := m.store.CreateHabit(context.Background(), &habit)
+	h, err := 	m.svc.CreateHabit(context.Background(), &habit)
 	if err != nil {
 		log.Printf("Error creating habit: %s", err)
 		m.statusMsg = "Could not create habit"

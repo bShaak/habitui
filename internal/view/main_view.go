@@ -41,13 +41,13 @@ func updateMain(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.form.Init()
 		case "c":
 			m.statusMsg = ""
-			habits, err := m.store.ListHabits(context.Background())
+			habits, err := 	m.svc.ListHabits(context.Background())
 			if err != nil {
 				log.Printf("Error fetching habits: %s", err)
 			}
 			m.habits = habits
 			weekEnd := m.weekStart.AddDate(0, 0, 6)
-			completions, err := m.store.GetCompletionsByDateRange(context.Background(), m.weekStart, weekEnd)
+			completions, err := m.svc.CompletionsByDateRange(context.Background(), m.weekStart, weekEnd)
 			if err != nil {
 				log.Printf("Error fetching week completions: %s", err)
 			}
@@ -61,7 +61,7 @@ func updateMain(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case "s":
 			m.statusMsg = ""
-			habits, err := m.store.ListHabits(context.Background())
+			habits, err := 	m.svc.ListHabits(context.Background())
 			if err != nil {
 				log.Printf("Error fetching habits: %s", err)
 			}
@@ -69,7 +69,7 @@ func updateMain(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.cursor >= len(m.habits) {
 				m.cursor = 0
 			}
-			statsCompletions, err := m.store.ListCompletions(context.Background())
+			statsCompletions, err := 	m.svc.ListCompletions(context.Background())
 			if err != nil {
 				log.Printf("Error fetching completions for stats: %s", err)
 			}
@@ -127,7 +127,7 @@ func deleteSelectedHabit(m Model) Model {
 		m.confirmingDelete = false
 		return m
 	}
-	err := m.store.DeleteHabit(context.Background(), m.habits[m.cursor].ID)
+	err := 	m.svc.DeleteHabit(context.Background(), m.habits[m.cursor].ID)
 	if err != nil {
 		log.Printf("Error deleting habit: %s", err)
 		m.confirmingDelete = false

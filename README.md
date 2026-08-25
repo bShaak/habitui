@@ -54,6 +54,7 @@ go install ./cmd/habitui   # or: make install
 | -------------- | --------------------------------- |
 | `make run`     | Run without installing            |
 | `make build`   | Build to `bin/habitui`            |
+| `make serve`   | Run the HTTP API server           |
 | `make test`    | Run tests                         |
 | `make install` | Install to `$(go env GOPATH)/bin` |
 | `make clean`   | Remove `bin/`                     |
@@ -75,6 +76,57 @@ habitui cli complete --id 1 --date 2026-08-03 --json
 | `--date YYYY-MM-DD` | Day to list or complete (default: today) |
 
 `list` includes `due` (scheduled that day) and `complete` (goal met). On `complete`, `already_complete` is true only when the habit was already at/above goal (no write); a new completion always has `already_complete: false` and a `completion` object. Habit create/edit/delete stays in the TUI.
+
+## HTTP API
+
+For native front-end clients, Habitui ships an embedded JSON API server over the same SQLite database:
+
+```bash
+habitui serve --addr 127.0.0.1:8080
+```
+
+| Flag | Description |
+| ---- | ----------- |
+| `--addr` | Listen address (default: `127.0.0.1:8080`) |
+| `--db path` | SQLite path (default: `~/.habitui/habit.db`) |
+
+The database runs in WAL mode, so the server, TUI, and CLI can safely share it.
+
+### Endpoints
+
+| Method | Path | Description |
+| ------ | ---- | ----------- |
+| `GET` | `/api/v1/habits?date=YYYY-MM-DD` | Day summary: all habits with due/complete state for that day |
+| `POST` | `/api/v1/habits` | Create habit (JSON body) |
+| `GET` | `/api/v1/habits/{id}` | Get one habit |
+| `PUT` | `/api/v1/habits/{id}` | Update habit (JSON body) |
+| `DELETE` | `/api/v1/habits/{id}` | Delete habit and its completions |
+| `POST` | `/api/v1/habits/{id}/complete?date=` | Record a completion (no-op if goal already met) |
+| `POST` | `/api/v1/habits/{id}/toggle?date=` | Add a completion, or remove all of that day's if the goal is met |
+| `GET` | `/api/v1/completions?from=&to=&habit_id=` | List completions (all, by date range, or by habit) |
+
+Dates default to today when omitted. Responses are indented JSON; errors return `{"error": "..."}` with an appropriate status code.
+
+Example session:
+
+```bash
+curl -s localhost:8080/api/v1/habits
+curl -s -X POST localhost:8080/api/v1/habits -d '{"name":"Read","goal":2}'
+curl -s -X POST localhost:8080/api/v1/habits/1/complete
+```
+
+## Architecture
+
+```
+internal/
+  models/    domain types (Habit, Completion)
+  habits/    business rules (scheduling, goals, day bounds)
+  storage/   SQLite persistence behind a Store interface
+  api/       HabitService facade used by every front end
+  cli/       CLI subcommand -> api
+  view/      Bubble Tea TUI -> api
+  server/    HTTP transport -> api
+```
 
 ## Usage
 

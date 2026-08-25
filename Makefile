@@ -7,8 +7,14 @@ build:
 run:
 	go run ./cmd/habitui
 
+serve:
+	go run ./cmd/habitui serve
+
 test:
 	go test ./...
+
+vet:
+	go vet ./...
 
 install:
 	go install ./cmd/habitui
@@ -16,4 +22,4 @@ install:
 clean:
 	rm -rf bin/
 
-.PHONY: all build run test install clean
+.PHONY: all build run serve test vet install clean

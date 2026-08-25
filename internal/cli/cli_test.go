@@ -342,7 +342,7 @@ func TestCompleteStampsDate(t *testing.T) {
 	var resp struct {
 		Date       string `json:"date"`
 		Completion *struct {
-			CompletedAt string
+			CompletedAt string `json:"completed_at"`
 		} `json:"completion"`
 	}
 	if err := json.Unmarshal(out, &resp); err != nil {

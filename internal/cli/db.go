@@ -3,14 +3,11 @@ package cli
 import (
 	"os"
 
-	"github.com/bShaak/habitui/internal/storage"
+	"github.com/bShaak/habitui/internal/api"
 )
 
-func openStore(dbPath string) (storage.Store, error) {
-	if dbPath == "" {
-		return storage.OpenSQLite()
-	}
-	return storage.OpenSQLiteAt(dbPath)
+func openService(dbPath string) (api.Service, error) {
+	return api.Open(resolveDBPath(dbPath))
 }
 
 func resolveDBPath(flagPath string) string {

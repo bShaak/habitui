@@ -46,6 +46,16 @@ func OpenSQLiteAt(dbPath string) (*SQLiteStore, error) {
 		_ = db.Close()
 		return nil, err
 	}
+	// WAL allows concurrent readers alongside a single writer, so the server,
+	// CLI and TUI can share the database file safely.
+	if _, err := db.Exec(`PRAGMA journal_mode = WAL`); err != nil {
+		_ = db.Close()
+		return nil, err
+	}
+	if _, err := db.Exec(`PRAGMA busy_timeout = 5000`); err != nil {
+		_ = db.Close()
+		return nil, err
+	}
 	store := &SQLiteStore{db: db}
 	if err := store.migrate(); err != nil {
 		_ = db.Close()

@@ -62,7 +62,7 @@ func updateEditHabit(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 	habit.Frequency = formFrequency(m.formFields)
 	habit.Color = color
 	habit.Icon = m.formFields.Icon
-	if err := m.store.UpdateHabit(context.Background(), &habit); err != nil {
+	if err := 	m.svc.UpdateHabit(context.Background(), &habit); err != nil {
 		log.Printf("Error updating habit: %s", err)
 		m.statusMsg = "Could not update habit"
 		return returnToMain(m), nil
